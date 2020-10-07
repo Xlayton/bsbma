@@ -1,0 +1,41 @@
+.toast {
+    position: absolute;
+    top: -100%;
+    width: 100%;
+    text-align: center;
+    animation: inandout ease-in-out 3.3s;
+}
+
+.toast.warning {
+    background-color: #eeee00
+}
+
+.toast.information {
+    background-color: #efefef
+}
+
+.toast.danger {
+    background-color: #cc0000
+}
+
+.toast.success {
+    background-color: #00cc00
+}
+
+@keyframes inandout {
+    0% {
+        top: -100%;
+    }
+
+    25% {
+        top: 0%;
+    }
+
+    75% {
+        top: 0%;
+    }
+
+    100% {
+        top: -100%;
+    }
+}
