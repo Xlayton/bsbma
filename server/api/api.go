@@ -80,11 +80,12 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 		//Gets and checks username and passwordhash to check for 0 length
 		username := r.FormValue("username")
-		passwordHash := hashPass([]byte(r.FormValue("password")))
-		if len(username) <= 0 || len(passwordHash) <= 0 {
+		password := r.FormValue("password")
+		if len(username) <= 0 || len(password) <= 0 {
 			log.Println("Fail 2")
 			return
 		}
+		passwordHash := hashPass([]byte(password))
 		//This chunk writes the image uploaded to machine storage to be used later
 		imageID, _ := uuid.NewUUID()
 		imageIDString := imageID.String()
