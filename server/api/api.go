@@ -1,11 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
@@ -58,26 +64,68 @@ type User struct {
 }
 
 func createUser(w http.ResponseWriter, r *http.Request) {
-	log.Println(r.Method)
-	switch r.Method {
-	case "POST":
+	//Checks for POST method, otherwise responds with 404
+	if r.Method == "POST" {
+		//Parses data given as multipart form data(needed for profile image)
+		r.ParseMultipartForm(8 << 20)
+		//This section gets the file data uploaded and defers closing the File generated
+		var buf bytes.Buffer
+		file, header, err := r.FormFile("profileimage")
+		fileExt := filepath.Ext(header.Filename)
+		if checkErr(err, func() { w.Write([]byte("No :)")) }) || !checkFileExtension(fileExt, []string{".jpg", ".png", ".jpeg"}) {
+			log.Println("Fail 1")
+			return
+		}
+		defer file.Close()
+
+		//Gets and checks username and passwordhash to check for 0 length
+		username := r.FormValue("username")
+		passwordHash := hashPass([]byte(r.FormValue("password")))
+		if len(username) <= 0 || len(passwordHash) <= 0 {
+			log.Println("Fail 2")
+			return
+		}
+		//This chunk writes the image uploaded to machine storage to be used later
+		imageID, _ := uuid.NewUUID()
+		imageIDString := imageID.String()
+		imageFilePath := "./image/" + imageIDString + fileExt
+		io.Copy(&buf, file)
+		ioutil.WriteFile(imageFilePath, buf.Bytes(), 0644)
+
+		//Inserts user into DB with generated uuid
 		client, ctx := getDbConnection()
 		defer client.Disconnect(ctx)
-		testUser := User{"1", "Fake", "NotReal", "test.jpg", []Map{}}
+		userID, _ := uuid.NewUUID()
+		testUser := User{userID.String(), username, string(passwordHash), imageFilePath, []Map{}}
 		coll := client.Database("bsbma").Collection("users")
-		insertRes, err := coll.InsertOne(context.TODO(), testUser)
+		_, err = coll.InsertOne(context.TODO(), testUser)
 		if err != nil {
 			log.Fatal(err)
 		}
-
-		log.Println("Inserted user with mongo uid: ", insertRes.InsertedID)
 		client.Disconnect(ctx)
+
+		//Writes success back
 		w.Write([]byte("Inserted"))
-		break
-	default:
+	} else {
 		w.Write([]byte("404 Page not found"))
 	}
+}
 
+func makeMap(w http.ResponseWriter, r *http.Request) {
+	//Handles song upload. Was done early because of profile image code.
+	//TODO: convert audio to ogg(if not already) and the actual map creation
+	r.ParseMultipartForm(32 << 20)
+	var buf bytes.Buffer
+	file, _, err := r.FormFile("audio")
+	if err != nil {
+		w.Write([]byte("No :)"))
+		return
+	}
+	defer file.Close()
+	songid, _ := uuid.NewUUID()
+	songidString := songid.String()
+	io.Copy(&buf, file)
+	ioutil.WriteFile(songidString+".mp3", buf.Bytes(), 0644)
 }
 
 func editUser(w http.ResponseWriter, r *http.Request) {
@@ -108,6 +156,29 @@ func getDbConnection() (*mongo.Client, context.Context) {
 		log.Fatal(err)
 	}
 	return client, ctx
+}
+
+func hashPass(pass []byte) []byte {
+	hash, err := bcrypt.GenerateFromPassword(pass, bcrypt.MinCost)
+	checkErr(err, func() { log.Fatal(err) })
+	return hash
+}
+
+func checkErr(err error, action func()) bool {
+	if err != nil {
+		action()
+		return true
+	}
+	return false
+}
+
+func checkFileExtension(extensionToCheck string, validExtensions []string) bool {
+	for _, ext := range validExtensions {
+		if ext == extensionToCheck {
+			return true
+		}
+	}
+	return false
 }
 
 func handleRequests() {
