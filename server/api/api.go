@@ -3,18 +3,21 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -58,12 +61,28 @@ type Map struct {
 type User struct {
 	UUID         string `json:"uuid"`
 	Username     string `json:"username"`
+	Email        string `json:"email"`
 	PassHash     string `json:"password"`
 	ProfileImage string `json:"image"`
 	Maps         []Map  `json:"maps"`
 }
 
+//ErrorResponse represents a JSON response back to the client on failure
+type ErrorResponse struct {
+	Code    int16  `json:"code"`
+	Message string `json:"message"`
+}
+
+//LoginResponse represents JSON response back to client on login
+type LoginResponse struct {
+	Code    int16  `json:"code"`
+	Message string `json:"message"`
+	User    User   `json:"user"`
+}
+
 func createUser(w http.ResponseWriter, r *http.Request) {
+	//Prepare header for json response
+	w.Header().Set("Content-Type", "application/json")
 	//Checks for POST method, otherwise responds with 404
 	if r.Method == "POST" {
 		//Parses data given as multipart form data(needed for profile image)
@@ -71,9 +90,18 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		//This section gets the file data uploaded and defers closing the File generated
 		var buf bytes.Buffer
 		file, header, err := r.FormFile("profileimage")
+		if checkErr(err, func() {
+			if err.Error() == "http: no such file" {
+				json.NewEncoder(w).Encode(ErrorResponse{400, "Please upload a jpg png or jpeg < 8MB"})
+			} else {
+				json.NewEncoder(w).Encode(ErrorResponse{500, "Failure uploading image. Please try again in 1 minute"})
+			}
+		}) {
+			return
+		}
 		fileExt := filepath.Ext(header.Filename)
-		if checkErr(err, func() { w.Write([]byte("No :)")) }) || !checkFileExtension(fileExt, []string{".jpg", ".png", ".jpeg"}) {
-			log.Println("Fail 1")
+		if !checkFileExtension(fileExt, []string{".jpg", ".png", ".jpeg"}) {
+			json.NewEncoder(w).Encode(ErrorResponse{400, "Please upload a jpg png or jpeg < 8MB"})
 			return
 		}
 		defer file.Close()
@@ -81,15 +109,16 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		//Gets and checks username and passwordhash to check for 0 length
 		username := r.FormValue("username")
 		password := r.FormValue("password")
-		if len(username) <= 0 || len(password) <= 0 {
-			log.Println("Fail 2")
+		email := r.FormValue("email")
+		if isStringEmpty(username) || isStringEmpty(password) || isStringEmpty(email) {
+			json.NewEncoder(w).Encode(ErrorResponse{400, "Please include a username, email, and password"})
 			return
 		}
 		passwordHash := hashPass([]byte(password))
 		//This chunk writes the image uploaded to machine storage to be used later
 		imageID, _ := uuid.NewUUID()
 		imageIDString := imageID.String()
-		imageFilePath := "./image/" + imageIDString + fileExt
+		imageFilePath := "/image/" + imageIDString + fileExt
 		io.Copy(&buf, file)
 		ioutil.WriteFile(imageFilePath, buf.Bytes(), 0644)
 
@@ -97,7 +126,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		client, ctx := getDbConnection()
 		defer client.Disconnect(ctx)
 		userID, _ := uuid.NewUUID()
-		testUser := User{userID.String(), username, string(passwordHash), imageFilePath, []Map{}}
+		testUser := User{userID.String(), username, email, string(passwordHash), imageFilePath, []Map{}}
 		coll := client.Database("bsbma").Collection("users")
 		_, err = coll.InsertOne(context.TODO(), testUser)
 		if err != nil {
@@ -114,7 +143,6 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 
 func makeMap(w http.ResponseWriter, r *http.Request) {
 	//Handles song upload. Was done early because of profile image code.
-	//TODO: convert audio to ogg(if not already) and the actual map creation
 	r.ParseMultipartForm(32 << 20)
 	var buf bytes.Buffer
 	file, _, err := r.FormFile("audio")
@@ -127,18 +155,55 @@ func makeMap(w http.ResponseWriter, r *http.Request) {
 	songidString := songid.String()
 	io.Copy(&buf, file)
 	ioutil.WriteFile(songidString+".mp3", buf.Bytes(), 0644)
+	//TODO: convert audio to ogg(if not already) and the actual map creation
 }
 
 func editUser(w http.ResponseWriter, r *http.Request) {
-	log.Println(uuid.NewUUID())
+
 }
 
 func removeUser(w http.ResponseWriter, r *http.Request) {
-
 }
 
 func getUser(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Hello"))
+	//Prepare header for json response
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == "GET" {
+		r.ParseForm()
+		userID := r.Form.Get("userid")
+		password := r.Form.Get("password")
+		if isStringEmpty(userID) || isStringEmpty(password) {
+			errResp, _ := json.Marshal(ErrorResponse{400, "Please provide valid username and password"})
+			w.Write(errResp)
+			return
+		}
+		emailRegex := regexp.MustCompile(`^(?:[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~])(?:\.?[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~]+)+\@(?:[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~]+)(?:\.?[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~])+$`)
+		if emailRegex.Match([]byte(userID)) {
+			client, ctx := getDbConnection()
+			defer client.Disconnect(ctx)
+			coll := client.Database("bsbma").Collection("users")
+			var foundUser User
+			err := coll.FindOne(context.TODO(), bson.M{"email": userID}).Decode(&foundUser)
+			if err != nil {
+				log.Println("Error logging in: " + userID + ":" + password + "(email)")
+			}
+			resp, _ := json.Marshal(LoginResponse{200, "OK", foundUser})
+			w.Write(resp)
+		} else {
+			client, ctx := getDbConnection()
+			defer client.Disconnect(ctx)
+			coll := client.Database("bsbma").Collection("users")
+			var foundUser User
+			err := coll.FindOne(context.TODO(), bson.M{"username": userID}).Decode(&foundUser)
+			if err != nil {
+				log.Println("Error logging in: " + userID + ":" + password + "(username)")
+			}
+			resp, _ := json.Marshal(LoginResponse{200, "OK", foundUser})
+			w.Write(resp)
+		}
+	} else {
+		w.Write([]byte("404 Page not found"))
+	}
 }
 
 func getDbConnection() (*mongo.Client, context.Context) {
@@ -151,7 +216,8 @@ func getDbConnection() (*mongo.Client, context.Context) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	ctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1000*time.Second)
+	defer cancel()
 	err = client.Connect(ctx)
 	if err != nil {
 		log.Fatal(err)
@@ -182,12 +248,16 @@ func checkFileExtension(extensionToCheck string, validExtensions []string) bool 
 	return false
 }
 
+func isStringEmpty(str string) bool {
+	return len(str) <= 0
+}
+
 func handleRequests() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/getuser", getUser)
-	mux.HandleFunc("/insertuser", createUser)
-	mux.HandleFunc("/testuuid", editUser)
-	log.Fatal(http.ListenAndServe(":10000", mux))
+	http.Handle("/static/image", http.FileServer(http.Dir("./image")))
+	http.HandleFunc("/getuser", getUser)
+	http.HandleFunc("/insertuser", createUser)
+	http.HandleFunc("/testuuid", editUser)
+	log.Fatal(http.ListenAndServe(":10000", nil))
 }
 
 func main() {
