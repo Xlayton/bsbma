@@ -168,39 +168,43 @@ func removeUser(w http.ResponseWriter, r *http.Request) {
 func getUser(w http.ResponseWriter, r *http.Request) {
 	//Prepare header for json response
 	w.Header().Set("Content-Type", "application/json")
+	//Assure method is GET
 	if r.Method == "GET" {
+		//Parse data from params
 		r.ParseForm()
 		userID := r.Form.Get("userid")
 		password := r.Form.Get("password")
+		//Check for required fields
 		if isStringEmpty(userID) || isStringEmpty(password) {
 			errResp, _ := json.Marshal(ErrorResponse{400, "Please provide valid username and password"})
 			w.Write(errResp)
 			return
 		}
 		emailRegex := regexp.MustCompile(`^(?:[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~])(?:\.?[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~]+)+\@(?:[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~]+)(?:\.?[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~])+$`)
+		client, ctx := getDbConnection()
+		defer client.Disconnect(ctx)
+		coll := client.Database("bsbma").Collection("users")
+		var foundUser User
+		var err error
 		if emailRegex.Match([]byte(userID)) {
-			client, ctx := getDbConnection()
-			defer client.Disconnect(ctx)
-			coll := client.Database("bsbma").Collection("users")
-			var foundUser User
-			err := coll.FindOne(context.TODO(), bson.M{"email": userID}).Decode(&foundUser)
-			if err != nil {
-				log.Println("Error logging in: " + userID + ":" + password + "(email)")
-			}
-			resp, _ := json.Marshal(LoginResponse{200, "OK", foundUser})
-			w.Write(resp)
+			err = coll.FindOne(context.TODO(), bson.M{"email": userID}).Decode(&foundUser)
 		} else {
-			client, ctx := getDbConnection()
-			defer client.Disconnect(ctx)
-			coll := client.Database("bsbma").Collection("users")
-			var foundUser User
-			err := coll.FindOne(context.TODO(), bson.M{"username": userID}).Decode(&foundUser)
-			if err != nil {
-				log.Println("Error logging in: " + userID + ":" + password + "(username)")
-			}
-			resp, _ := json.Marshal(LoginResponse{200, "OK", foundUser})
-			w.Write(resp)
+			err = coll.FindOne(context.TODO(), bson.M{"username": userID}).Decode(&foundUser)
 		}
+		if err != nil {
+			log.Println("Error logging in: " + userID + ":" + password)
+			errResp, _ := json.Marshal(ErrorResponse{500, "Internal Server Error."})
+			w.Write(errResp)
+			return
+		}
+		err = bcrypt.CompareHashAndPassword([]byte(foundUser.PassHash), []byte(password))
+		if err != nil {
+			errResp, _ := json.Marshal(ErrorResponse{400, "Please provide valid username/email & password combination"})
+			w.Write(errResp)
+			return
+		}
+		resp, _ := json.Marshal(LoginResponse{200, "OK", foundUser})
+		w.Write(resp)
 	} else {
 		w.Write([]byte("404 Page not found"))
 	}
