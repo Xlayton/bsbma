@@ -126,9 +126,9 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		//Inserts user into DB with generated uuid
 		client, ctx := getDbConnection()
 		defer client.Disconnect(ctx)
+		coll := client.Database("bsbma").Collection("users")
 		userID, _ := uuid.NewUUID()
 		testUser := User{userID.String(), username, email, string(passwordHash), imageFilePath[1:], []Map{}}
-		coll := client.Database("bsbma").Collection("users")
 		_, err = coll.InsertOne(context.TODO(), testUser)
 		if err != nil {
 			log.Fatal(err)
@@ -160,6 +160,69 @@ func makeMap(w http.ResponseWriter, r *http.Request) {
 }
 
 func editUser(w http.ResponseWriter, r *http.Request) {
+	//Prepare header for json response
+	w.Header().Set("Content-Type", "application/json")
+	//Assure method is PUT
+	if r.Method == "PUT" {
+		//Parse data from body
+		r.ParseMultipartForm(32 << 20)
+		//Get body fields
+		reqUUID := r.Form.Get("uuid")
+		username := r.Form.Get("username")
+		oldPass := r.Form.Get("oldpass")
+		newPass := r.Form.Get("newpass")
+		email := r.Form.Get("email")
+		file, header, err := r.FormFile("profileimage")
+		//Check minimum required fields
+		if isStringEmpty(reqUUID) || isStringEmpty(username) || isStringEmpty(oldPass) || isStringEmpty(email) {
+			errResp, _ := json.Marshal(GeneralResponse{400, "Please provide necessary fields"})
+			w.Write(errResp)
+		}
+		client, ctx := getDbConnection()
+		defer client.Disconnect(ctx)
+		coll := client.Database("bsbma").Collection("users")
+		var oldUser User
+		coll.FindOne(context.TODO(), bson.M{"uuid": reqUUID}).Decode(&oldUser)
+		isOldPassCorrectErr := bcrypt.CompareHashAndPassword([]byte(oldUser.PassHash), []byte(oldPass))
+		if isOldPassCorrectErr != nil {
+			log.Println("Unauthorized edit attempt on user: " + oldUser.UUID)
+			errorRes, _ := json.Marshal(GeneralResponse{401, "Unauthorized"})
+			w.Write(errorRes)
+			return
+		}
+		if err != nil {
+			if isStringEmpty(newPass) {
+				update := bson.D{{Key: "$set", Value: bson.D{{Key: "username", Value: username}, {Key: "email", Value: email}}}}
+				coll.UpdateOne(context.TODO(), bson.M{"uuid": reqUUID}, update)
+			} else {
+				newHash := hashPass([]byte(newPass))
+				update := bson.D{{Key: "$set", Value: bson.D{{Key: "username", Value: username}, {Key: "email", Value: email}, {Key: "passhash", Value: string(newHash)}}}}
+				coll.UpdateOne(context.TODO(), bson.M{"uuid": reqUUID}, update)
+			}
+		} else {
+			fileExt := filepath.Ext(header.Filename)
+			if !checkFileExtension(fileExt, []string{".jpg", ".png", ".jpeg"}) {
+				json.NewEncoder(w).Encode(GeneralResponse{400, "Please upload a jpg png or jpeg < 8MB"})
+				return
+			}
+			var buf bytes.Buffer
+			newImageID, _ := uuid.NewUUID()
+			newImageIDString := newImageID.String()
+			newImageFilePath := "./image/" + newImageIDString + fileExt
+			io.Copy(&buf, file)
+			ioutil.WriteFile(newImageFilePath, buf.Bytes(), 0644)
+			defer file.Close()
+			os.Remove("." + oldUser.ProfileImage)
+			if isStringEmpty(newPass) {
+				update := bson.D{{Key: "$set", Value: bson.D{{Key: "username", Value: username}, {Key: "email", Value: email}, {Key: "profileimage", Value: newImageFilePath[1:]}}}}
+				coll.UpdateOne(context.TODO(), bson.M{"uuid": reqUUID}, update)
+			} else {
+				newHash := hashPass([]byte(newPass))
+				update := bson.D{{Key: "$set", Value: bson.D{{Key: "username", Value: username}, {Key: "email", Value: email}, {Key: "profileimage", Value: newImageFilePath[1:]}, {Key: "passhash", Value: string(newHash)}}}}
+				coll.UpdateOne(context.TODO(), bson.M{"uuid": reqUUID}, update)
+			}
+		}
+	}
 
 }
 
@@ -189,10 +252,14 @@ func removeUser(w http.ResponseWriter, r *http.Request) {
 			w.Write(errResp)
 			return
 		}
-		err = os.Remove("." + foundUser.ProfileImage)
-		if err != nil {
-			log.Println(err)
+		if !isStringEmpty(foundUser.ProfileImage) {
+			err = os.Remove("." + foundUser.ProfileImage)
+			if err != nil {
+				log.Println(err)
+			}
 		}
+		resp, _ := json.Marshal(GeneralResponse{200, "OK"})
+		w.Write(resp)
 	}
 }
 
@@ -292,6 +359,7 @@ func handleRequests() {
 	http.HandleFunc("/getuser", getUser)
 	http.HandleFunc("/insertuser", createUser)
 	http.HandleFunc("/deleteuser", removeUser)
+	http.HandleFunc("/edituser", editUser)
 	log.Fatal(http.ListenAndServe(":10000", nil))
 }
 
