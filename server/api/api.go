@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -67,8 +68,8 @@ type User struct {
 	Maps         []Map  `json:"maps"`
 }
 
-//ErrorResponse represents a JSON response back to the client on failure
-type ErrorResponse struct {
+//GeneralResponse represents a JSON response back to the client on failure
+type GeneralResponse struct {
 	Code    int16  `json:"code"`
 	Message string `json:"message"`
 }
@@ -92,16 +93,16 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		file, header, err := r.FormFile("profileimage")
 		if checkErr(err, func() {
 			if err.Error() == "http: no such file" {
-				json.NewEncoder(w).Encode(ErrorResponse{400, "Please upload a jpg png or jpeg < 8MB"})
+				json.NewEncoder(w).Encode(GeneralResponse{400, "Please upload a jpg png or jpeg < 8MB"})
 			} else {
-				json.NewEncoder(w).Encode(ErrorResponse{500, "Failure uploading image. Please try again in 1 minute"})
+				json.NewEncoder(w).Encode(GeneralResponse{500, "Failure uploading image. Please try again in 1 minute"})
 			}
 		}) {
 			return
 		}
 		fileExt := filepath.Ext(header.Filename)
 		if !checkFileExtension(fileExt, []string{".jpg", ".png", ".jpeg"}) {
-			json.NewEncoder(w).Encode(ErrorResponse{400, "Please upload a jpg png or jpeg < 8MB"})
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please upload a jpg png or jpeg < 8MB"})
 			return
 		}
 		defer file.Close()
@@ -111,14 +112,14 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		password := r.FormValue("password")
 		email := r.FormValue("email")
 		if isStringEmpty(username) || isStringEmpty(password) || isStringEmpty(email) {
-			json.NewEncoder(w).Encode(ErrorResponse{400, "Please include a username, email, and password"})
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include a username, email, and password"})
 			return
 		}
 		passwordHash := hashPass([]byte(password))
 		//This chunk writes the image uploaded to machine storage to be used later
 		imageID, _ := uuid.NewUUID()
 		imageIDString := imageID.String()
-		imageFilePath := "/image/" + imageIDString + fileExt
+		imageFilePath := "./image/" + imageIDString + fileExt
 		io.Copy(&buf, file)
 		ioutil.WriteFile(imageFilePath, buf.Bytes(), 0644)
 
@@ -126,7 +127,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		client, ctx := getDbConnection()
 		defer client.Disconnect(ctx)
 		userID, _ := uuid.NewUUID()
-		testUser := User{userID.String(), username, email, string(passwordHash), imageFilePath, []Map{}}
+		testUser := User{userID.String(), username, email, string(passwordHash), imageFilePath[1:], []Map{}}
 		coll := client.Database("bsbma").Collection("users")
 		_, err = coll.InsertOne(context.TODO(), testUser)
 		if err != nil {
@@ -163,6 +164,36 @@ func editUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func removeUser(w http.ResponseWriter, r *http.Request) {
+	//Prepare header for json response
+	w.Header().Set("Content-Type", "application/json")
+	//Assure method is DELETE
+	if r.Method == "DELETE" {
+		//Parse data from params
+		r.ParseForm()
+		//Get and check required params
+		uuid := r.Form.Get("uuid")
+		if isStringEmpty(uuid) {
+			errResp, _ := json.Marshal(GeneralResponse{400, "Please provide valid username and password"})
+			w.Write(errResp)
+			return
+		}
+		client, ctx := getDbConnection()
+		defer client.Disconnect(ctx)
+		coll := client.Database("bsbma").Collection("users")
+		var foundUser User
+		coll.FindOne(context.TODO(), bson.M{"uuid": uuid}).Decode(&foundUser)
+		_, err := coll.DeleteOne(context.TODO(), bson.M{"uuid": uuid})
+		if err != nil {
+			log.Println("Error deleting: " + uuid)
+			errResp, _ := json.Marshal(GeneralResponse{500, "Internal Server Error."})
+			w.Write(errResp)
+			return
+		}
+		err = os.Remove("." + foundUser.ProfileImage)
+		if err != nil {
+			log.Println(err)
+		}
+	}
 }
 
 func getUser(w http.ResponseWriter, r *http.Request) {
@@ -172,11 +203,11 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		//Parse data from params
 		r.ParseForm()
+		//Get and check for required fields
 		userID := r.Form.Get("userid")
 		password := r.Form.Get("password")
-		//Check for required fields
 		if isStringEmpty(userID) || isStringEmpty(password) {
-			errResp, _ := json.Marshal(ErrorResponse{400, "Please provide valid username and password"})
+			errResp, _ := json.Marshal(GeneralResponse{400, "Please provide valid username and password"})
 			w.Write(errResp)
 			return
 		}
@@ -193,13 +224,13 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 		}
 		if err != nil {
 			log.Println("Error logging in: " + userID + ":" + password)
-			errResp, _ := json.Marshal(ErrorResponse{500, "Internal Server Error."})
+			errResp, _ := json.Marshal(GeneralResponse{500, "Internal Server Error."})
 			w.Write(errResp)
 			return
 		}
 		err = bcrypt.CompareHashAndPassword([]byte(foundUser.PassHash), []byte(password))
 		if err != nil {
-			errResp, _ := json.Marshal(ErrorResponse{400, "Please provide valid username/email & password combination"})
+			errResp, _ := json.Marshal(GeneralResponse{400, "Please provide valid username/email & password combination"})
 			w.Write(errResp)
 			return
 		}
@@ -260,7 +291,7 @@ func handleRequests() {
 	http.Handle("/static/image", http.FileServer(http.Dir("./image")))
 	http.HandleFunc("/getuser", getUser)
 	http.HandleFunc("/insertuser", createUser)
-	http.HandleFunc("/testuuid", editUser)
+	http.HandleFunc("/deleteuser", removeUser)
 	log.Fatal(http.ListenAndServe(":10000", nil))
 }
 
