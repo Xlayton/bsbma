@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"time"
@@ -146,7 +147,7 @@ func makeMap(w http.ResponseWriter, r *http.Request) {
 	//Handles song upload. Was done early because of profile image code.
 	r.ParseMultipartForm(32 << 20)
 	var buf bytes.Buffer
-	file, _, err := r.FormFile("audio")
+	file, header, err := r.FormFile("audio")
 	if err != nil {
 		w.Write([]byte("No :)"))
 		return
@@ -154,9 +155,17 @@ func makeMap(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 	songid, _ := uuid.NewUUID()
 	songidString := songid.String()
+	songFilePath := "./audio/" + songidString + ".ogg"
 	io.Copy(&buf, file)
-	ioutil.WriteFile(songidString+".mp3", buf.Bytes(), 0644)
-	//TODO: convert audio to ogg(if not already) and the actual map creation
+	rawFilePath := "./audio/" + header.Filename
+	ioutil.WriteFile(rawFilePath, buf.Bytes(), 0644)
+	cmd := exec.Command("ffmpeg", "-i", rawFilePath, songFilePath)
+	err = cmd.Run()
+	if err != nil {
+		log.Println("Error transcoding through ffmpeg")
+		log.Println(err)
+	}
+	os.Remove(rawFilePath)
 }
 
 func editUser(w http.ResponseWriter, r *http.Request) {
@@ -360,6 +369,7 @@ func handleRequests() {
 	http.HandleFunc("/insertuser", createUser)
 	http.HandleFunc("/deleteuser", removeUser)
 	http.HandleFunc("/edituser", editUser)
+	http.HandleFunc("/makemap", makeMap)
 	log.Fatal(http.ListenAndServe(":10000", nil))
 }
 
