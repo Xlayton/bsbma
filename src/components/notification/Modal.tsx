@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import "./Modal.css";
+import "../../styling/notification/Modal.css";
 
 interface IProps {
     modalText: String,

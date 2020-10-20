@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import "./Confirmation.css";
+import "../../styling/notification/Confirmation.css";
 
 interface IProps {
     confirmationQuestion: String
