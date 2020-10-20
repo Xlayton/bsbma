@@ -129,7 +129,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		defer client.Disconnect(ctx)
 		coll := client.Database("bsbma").Collection("users")
 		userID, _ := uuid.NewUUID()
-		testUser := User{userID.String(), username, email, string(passwordHash), imageFilePath[1:], []Map{}}
+		testUser := User{userID.String(), username, email, string(passwordHash), "/static" + imageFilePath[1:], []Map{}}
 		_, err = coll.InsertOne(context.TODO(), testUser)
 		if err != nil {
 			log.Fatal(err)
@@ -364,7 +364,7 @@ func isStringEmpty(str string) bool {
 }
 
 func handleRequests() {
-	http.Handle("/static/image", http.FileServer(http.Dir("./image")))
+	http.Handle("/static/image/", http.StripPrefix("/static/image/", http.FileServer(http.Dir("./image"))))
 	http.HandleFunc("/getuser", getUser)
 	http.HandleFunc("/insertuser", createUser)
 	http.HandleFunc("/deleteuser", removeUser)

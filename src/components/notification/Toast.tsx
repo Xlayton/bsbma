@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import "./Toast.css";
+import "../../styling/notification/Toast.css";
 
 interface IProps {
     isVisible: boolean
