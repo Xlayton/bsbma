@@ -70,3 +70,8 @@
 .content-area {
   grid-area: body;
 }
+
+#attempt {
+  width: 100%;
+  height: 100%;
+}
