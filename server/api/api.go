@@ -221,7 +221,8 @@ func editUser(w http.ResponseWriter, r *http.Request) {
 			io.Copy(&buf, file)
 			ioutil.WriteFile(newImageFilePath, buf.Bytes(), 0644)
 			defer file.Close()
-			os.Remove("." + oldUser.ProfileImage)
+			oldFilePath := oldUser.ProfileImage[7:]
+			os.Remove("." + oldFilePath)
 			if isStringEmpty(newPass) {
 				update := bson.D{{Key: "$set", Value: bson.D{{Key: "username", Value: username}, {Key: "email", Value: email}, {Key: "profileimage", Value: newImageFilePath[1:]}}}}
 				coll.UpdateOne(context.TODO(), bson.M{"uuid": reqUUID}, update)
@@ -262,7 +263,8 @@ func removeUser(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !isStringEmpty(foundUser.ProfileImage) {
-			err = os.Remove("." + foundUser.ProfileImage)
+			filePath := foundUser.ProfileImage[7:]
+			err = os.Remove("." + filePath)
 			if err != nil {
 				log.Println(err)
 			}
