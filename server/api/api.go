@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -50,12 +51,12 @@ type Map struct {
 	CoverImage      string       `json:"coverimage"`
 	EnvironmentName string       `json:"environmentname"`
 	Song            string       `json:"song"`
-	Bpm             int16        `json:"bpm"`
-	Shuffle         int16        `json:"shuffle"`
-	ShufflePeriod   int16        `json:"shuffleperiod"`
-	PreviewStart    int32        `json:"previewstart"`
-	PreviewDuration int32        `json:"previewduration"`
-	SongTimeOffset  int32        `json:"songtimeoffset"`
+	Bpm             int          `json:"bpm"`
+	Shuffle         int          `json:"shuffle"`
+	ShufflePeriod   int          `json:"shuffleperiod"`
+	PreviewStart    int          `json:"previewstart"`
+	PreviewDuration int          `json:"previewduration"`
+	SongTimeOffset  int          `json:"songtimeoffset"`
 	BeatmapSets     []BeatmapSet `json:"beatmapsets"`
 }
 
@@ -137,35 +138,117 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		client.Disconnect(ctx)
 
 		//Writes success back
-		w.Write([]byte("Inserted"))
+		json.NewEncoder(w).Encode(GeneralResponse{200, "Ok"})
 	} else {
 		w.Write([]byte("404 Page not found"))
 	}
 }
 
 func makeMap(w http.ResponseWriter, r *http.Request) {
-	//Handles song upload. Was done early because of profile image code.
-	r.ParseMultipartForm(32 << 20)
-	var buf bytes.Buffer
-	file, header, err := r.FormFile("audio")
-	if err != nil {
-		w.Write([]byte("No :)"))
-		return
+	w.Header().Set("Content-Type", "application/json")
+	if r.Method == "POST" {
+		//Handles song upload. Was done early because of profile image code.
+		r.ParseMultipartForm(32 << 20)
+		var buf bytes.Buffer
+		file, header, err := r.FormFile("audio")
+		if err != nil {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Error Uploading Audio, Please wait a minute and try again"})
+			return
+		}
+		defer file.Close()
+		imagefile, imageheader, err := r.FormFile("coverimage")
+		if err != nil {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Error Uploading Cover Image, Please wait a minute and try again"})
+			return
+		}
+		imageExt := filepath.Ext(imageheader.Filename)
+		if !checkFileExtension(imageExt, []string{".jpg", ".png", ".jpeg"}) {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please upload a jpg png or jpeg < 8MB"})
+			return
+		}
+		defer imagefile.Close()
+		mapid, _ := uuid.NewUUID()
+		mapidstring := mapid.String()
+		userUUID := r.FormValue("uuid")
+		version := r.FormValue("version")
+		name := r.FormValue("name")
+		subname := r.FormValue("subname")
+		artist := r.FormValue("artist")
+		environmentName := r.FormValue("environmentname")
+		bpm := r.FormValue("bpm")
+		shuffle := r.FormValue("shuffle")
+		shufflePeriod := r.FormValue("shuffleperiod")
+		previewStart := r.FormValue("previewstart")
+		previewDuration := r.FormValue("previewduration")
+		songTimeOffset := r.FormValue("songtimeoffset")
+
+		if isStringEmpty(userUUID) || isStringEmpty(version) || isStringEmpty(name) || isStringEmpty(artist) || isStringEmpty(environmentName) || isStringEmpty(bpm) || isStringEmpty(shuffle) || isStringEmpty(shufflePeriod) || isStringEmpty(previewStart) || isStringEmpty(previewDuration) || isStringEmpty(songTimeOffset) {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid fields"})
+			return
+		}
+		bpmInt, err := strconv.Atoi(bpm)
+		if err != nil {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid bpm"})
+			return
+		}
+		shuffleInt, err := strconv.Atoi(shuffle)
+		if err != nil {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid bpm"})
+			return
+		}
+		shufflePeriodInt, err := strconv.Atoi(shufflePeriod)
+		if err != nil {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid bpm"})
+			return
+		}
+		previewStartInt, err := strconv.Atoi(previewStart)
+		if err != nil {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid bpm"})
+			return
+		}
+		previewDurationInt, err := strconv.Atoi(previewDuration)
+		if err != nil {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid bpm"})
+			return
+		}
+		songTimeOffsetInt, err := strconv.Atoi(songTimeOffset)
+		if err != nil {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid bpm"})
+			return
+		}
+		songid, _ := uuid.NewUUID()
+		songidString := songid.String()
+		songFilePath := "./audio/" + songidString + ".ogg"
+		io.Copy(&buf, file)
+		rawFilePath := "./audio/" + header.Filename
+		ioutil.WriteFile(rawFilePath, buf.Bytes(), 0644)
+		cmd := exec.Command("ffmpeg", "-i", rawFilePath, songFilePath)
+		err = cmd.Run()
+		if err != nil {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Error Uploading Audio, Please wait a minute and try again"})
+			log.Println("Error transcoding through ffmpeg. Make sure ffmpeg is installed")
+			log.Println(err)
+			os.Remove(rawFilePath)
+			return
+		}
+		os.Remove(rawFilePath)
+		imageid, _ := uuid.NewUUID()
+		imageidString := imageid.String()
+		imageFilePath := "./image/" + imageidString + imageExt
+		io.Copy(&buf, imagefile)
+		ioutil.WriteFile(imageFilePath, buf.Bytes(), 0644)
+		client, ctx := getDbConnection()
+		defer client.Disconnect(ctx)
+		coll := client.Database("bsbma").Collection("users")
+		var user User
+		coll.FindOne(context.TODO(), bson.M{"uuid": userUUID}).Decode(&user)
+		createdMap := Map{mapidstring, version, name, subname, artist, user.Username, imageFilePath[1:], environmentName, songFilePath[1:], bpmInt, shuffleInt, shufflePeriodInt, previewStartInt, previewDurationInt, songTimeOffsetInt, []BeatmapSet{}}
+		update := bson.D{{Key: "$push", Value: bson.D{{Key: "maps", Value: createdMap}}}}
+		coll.UpdateOne(context.TODO(), bson.M{"uuid": userUUID}, update)
+		json.NewEncoder(w).Encode(GeneralResponse{200, "Ok"})
+	} else {
+		w.Write([]byte("404 Not Found"))
 	}
-	defer file.Close()
-	songid, _ := uuid.NewUUID()
-	songidString := songid.String()
-	songFilePath := "./audio/" + songidString + ".ogg"
-	io.Copy(&buf, file)
-	rawFilePath := "./audio/" + header.Filename
-	ioutil.WriteFile(rawFilePath, buf.Bytes(), 0644)
-	cmd := exec.Command("ffmpeg", "-i", rawFilePath, songFilePath)
-	err = cmd.Run()
-	if err != nil {
-		log.Println("Error transcoding through ffmpeg")
-		log.Println(err)
-	}
-	os.Remove(rawFilePath)
 }
 
 func editUser(w http.ResponseWriter, r *http.Request) {
@@ -184,8 +267,8 @@ func editUser(w http.ResponseWriter, r *http.Request) {
 		file, header, err := r.FormFile("profileimage")
 		//Check minimum required fields
 		if isStringEmpty(reqUUID) || isStringEmpty(username) || isStringEmpty(oldPass) || isStringEmpty(email) {
-			errResp, _ := json.Marshal(GeneralResponse{400, "Please provide necessary fields"})
-			w.Write(errResp)
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide necessary fields"})
+
 		}
 		client, ctx := getDbConnection()
 		defer client.Disconnect(ctx)
@@ -195,8 +278,7 @@ func editUser(w http.ResponseWriter, r *http.Request) {
 		isOldPassCorrectErr := bcrypt.CompareHashAndPassword([]byte(oldUser.PassHash), []byte(oldPass))
 		if isOldPassCorrectErr != nil {
 			log.Println("Unauthorized edit attempt on user: " + oldUser.UUID)
-			errorRes, _ := json.Marshal(GeneralResponse{401, "Unauthorized"})
-			w.Write(errorRes)
+			json.NewEncoder(w).Encode(GeneralResponse{401, "Unauthorized"})
 			return
 		}
 		if err != nil {
@@ -246,8 +328,7 @@ func removeUser(w http.ResponseWriter, r *http.Request) {
 		//Get and check required params
 		uuid := r.Form.Get("uuid")
 		if isStringEmpty(uuid) {
-			errResp, _ := json.Marshal(GeneralResponse{400, "Please provide valid username and password"})
-			w.Write(errResp)
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide valid username and password"})
 			return
 		}
 		client, ctx := getDbConnection()
@@ -258,8 +339,8 @@ func removeUser(w http.ResponseWriter, r *http.Request) {
 		_, err := coll.DeleteOne(context.TODO(), bson.M{"uuid": uuid})
 		if err != nil {
 			log.Println("Error deleting: " + uuid)
-			errResp, _ := json.Marshal(GeneralResponse{500, "Internal Server Error."})
-			w.Write(errResp)
+			json.NewEncoder(w).Encode(GeneralResponse{500, "Internal Server Error. Please try again in 1 minute"})
+
 			return
 		}
 		if !isStringEmpty(foundUser.ProfileImage) {
@@ -269,8 +350,7 @@ func removeUser(w http.ResponseWriter, r *http.Request) {
 				log.Println(err)
 			}
 		}
-		resp, _ := json.Marshal(GeneralResponse{200, "OK"})
-		w.Write(resp)
+		json.NewEncoder(w).Encode(GeneralResponse{200, "OK"})
 	}
 }
 
@@ -285,8 +365,7 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 		userID := r.Form.Get("userid")
 		password := r.Form.Get("password")
 		if isStringEmpty(userID) || isStringEmpty(password) {
-			errResp, _ := json.Marshal(GeneralResponse{400, "Please provide valid username and password"})
-			w.Write(errResp)
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide valid username and password"})
 			return
 		}
 		emailRegex := regexp.MustCompile(`^(?:[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~])(?:\.?[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~]+)+\@(?:[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~]+)(?:\.?[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~])+$`)
@@ -302,18 +381,16 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 		}
 		if err != nil {
 			log.Println("Error logging in: " + userID + ":" + password)
-			errResp, _ := json.Marshal(GeneralResponse{500, "Internal Server Error."})
-			w.Write(errResp)
+			json.NewEncoder(w).Encode(GeneralResponse{500, "Internal Server Error. Please try again in 1 minute"})
+
 			return
 		}
 		err = bcrypt.CompareHashAndPassword([]byte(foundUser.PassHash), []byte(password))
 		if err != nil {
-			errResp, _ := json.Marshal(GeneralResponse{400, "Please provide valid username/email & password combination"})
-			w.Write(errResp)
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide valid username/email & password combination"})
 			return
 		}
-		resp, _ := json.Marshal(LoginResponse{200, "OK", foundUser})
-		w.Write(resp)
+		json.NewEncoder(w).Encode(LoginResponse{200, "OK", foundUser})
 	} else {
 		w.Write([]byte("404 Page not found"))
 	}
