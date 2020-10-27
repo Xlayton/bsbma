@@ -1,4 +1,3 @@
-import { eventNames } from 'process';
 import React, { Component } from 'react'
 import { Scene, WebGLRenderer, PerspectiveCamera, AmbientLight, Raycaster, Vector2, Camera } from 'three'
 import GLTFLoader from 'three-gltf-loader'
@@ -25,34 +24,34 @@ export class EditorCanvas extends Component<IProps, IState> {
 
             const loader = new GLTFLoader();
             loader.load("./models/GridPane.glb",
-                function (gltf) {
+                gltf => {
                     const root = gltf.scene;
                     root.children[0].userData = { "position": 7, "isPlaced": false }
                     scene.add(root);
                 });
             loader.load("./models/GridPane.glb",
-                function (gltf) {
+                gltf => {
                     const root = gltf.scene;
                     root.children[0].userData = { "position": 4, "isPlaced": false }
                     root.position.y = 3
                     scene.add(root);
                 });
             loader.load("./models/GridPane.glb",
-                function (gltf) {
+                gltf => {
                     const root = gltf.scene;
                     root.children[0].userData = { "position": 1, "isPlaced": false }
                     root.position.y = 6
                     scene.add(root);
                 });
             loader.load("./models/GridPane.glb",
-                function (gltf) {
+                gltf => {
                     const root = gltf.scene;
                     root.children[0].userData = { "position": 6, "isPlaced": false }
                     root.position.z = 3
                     scene.add(root);
                 });
             loader.load("./models/GridPane.glb",
-                function (gltf) {
+                gltf => {
                     const root = gltf.scene;
                     root.children[0].userData = { "position": 3, "isPlaced": false }
                     root.position.z = 3
@@ -60,7 +59,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                     scene.add(root);
                 });
             loader.load("./models/GridPane.glb",
-                function (gltf) {
+                gltf => {
                     const root = gltf.scene;
                     root.children[0].userData = { "position": 0, "isPlaced": false }
                     root.position.z = 3
@@ -68,14 +67,14 @@ export class EditorCanvas extends Component<IProps, IState> {
                     scene.add(root);
                 });
             loader.load("./models/GridPane.glb",
-                function (gltf) {
+                gltf => {
                     const root = gltf.scene;
                     root.children[0].userData = { "position": 8, "isPlaced": false }
                     root.position.z = -3
                     scene.add(root);
                 });
             loader.load("./models/GridPane.glb",
-                function (gltf) {
+                gltf => {
                     const root = gltf.scene;
                     root.children[0].userData = { "position": 5, "isPlaced": false }
                     root.position.z = -3
@@ -83,7 +82,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                     scene.add(root);
                 });
             loader.load("./models/GridPane.glb",
-                function (gltf) {
+                gltf => {
                     const root = gltf.scene;
                     root.children[0].userData = { "position": 2, "isPlaced": false }
                     root.position.z = -3
@@ -104,7 +103,7 @@ export class EditorCanvas extends Component<IProps, IState> {
     placeBlock = (event: MouseEvent, canvas: HTMLCanvasElement, camera: Camera, raycaster: Raycaster, scene: Scene, loader: GLTFLoader) => {
         let tempMouse = new Vector2()
         let rect = canvas.getBoundingClientRect();
-        tempMouse.x = (event.clientX / (window.innerWidth + rect.left)) * 2 - 1;
+        tempMouse.x = (event.clientX / (window.innerWidth + rect.left + .2)) * 2 - 1;
         tempMouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(tempMouse, camera);
         let meshes = scene.children.filter(val => val.type === "Scene").map(val => val.children.filter(val => val.type === "Mesh")).map(val => val[0])
@@ -114,9 +113,10 @@ export class EditorCanvas extends Component<IProps, IState> {
             if (!gridCellData.isPlaced) {
                 gridCellData.isPlaced = true;
                 loader.load("./models/LBlock.glb",
-                    function (gltf) {
+                    gltf => {
                         const root = gltf.scene;
                         root.translateX(1)
+                        root.scale.set(.75, .75, .75)
                         intersects[0].object.add(root)
                     });
             }

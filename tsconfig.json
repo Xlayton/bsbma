@@ -19,7 +19,7 @@
     "jsx": "react",
     "sourceMap": true,
     "declaration": true,
-    "noUnusedLocals": false,
+    "noUnusedLocals": true,
     "noUnusedParameters": true,
     "experimentalDecorators": true,
     "noFallthroughCasesInSwitch": false,
