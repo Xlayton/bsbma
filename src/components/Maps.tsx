@@ -11,7 +11,7 @@ export class Maps extends Component<IProps, IState> {
     render() {
         return (
             <>
-                {this.props.isUserLogged ? <Redirect to="/" /> : null}
+                {!this.props.isUserLogged ? <Redirect to="/" /> : null}
                 <h1>Maps</ h1>
             </>
         )

@@ -16,12 +16,14 @@ interface IProps {
 
 interface IState {
   isUserLogged: boolean
+  apiURL: string
 }
 
 export default class App extends Component<IProps, IState> {
 
   state: IState = {
-    isUserLogged: false
+    isUserLogged: false,
+    apiURL: "http://localhost:10000"
   }
 
   setUserLogged = (isUserLogged: boolean) => {
@@ -55,10 +57,10 @@ export default class App extends Component<IProps, IState> {
               <Maps isUserLogged={this.state.isUserLogged} />
             </Route>
             <Route exact path="/login">
-              <Login />
+              <Login setUserLogged={this.setUserLogged} apiURL={this.state.apiURL} />
             </Route>
             <Route exact path="/register">
-              <Register />
+              <Register apiURL={this.state.apiURL} />
             </Route>
           </section>
         </BrowserRouter>
