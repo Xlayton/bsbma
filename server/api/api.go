@@ -85,7 +85,7 @@ type LoginResponse struct {
 
 func createUser(w http.ResponseWriter, r *http.Request) {
 	//Prepare header for json response
-	w.Header().Set("Content-Type", "application/json")
+	setHeaders(w)
 	//Checks for POST method, otherwise responds with 404
 	if r.Method == "POST" {
 		//Parses data given as multipart form data(needed for profile image)
@@ -145,7 +145,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func makeMap(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
+	setHeaders(w)
 	if r.Method == "POST" {
 		//Handles song upload. Was done early because of profile image code.
 		r.ParseMultipartForm(32 << 20)
@@ -253,7 +253,7 @@ func makeMap(w http.ResponseWriter, r *http.Request) {
 
 func editUser(w http.ResponseWriter, r *http.Request) {
 	//Prepare header for json response
-	w.Header().Set("Content-Type", "application/json")
+	setHeaders(w)
 	//Assure method is PUT
 	if r.Method == "PUT" {
 		//Parse data from body
@@ -320,7 +320,7 @@ func editUser(w http.ResponseWriter, r *http.Request) {
 
 func removeUser(w http.ResponseWriter, r *http.Request) {
 	//Prepare header for json response
-	w.Header().Set("Content-Type", "application/json")
+	setHeaders(w)
 	//Assure method is DELETE
 	if r.Method == "DELETE" {
 		//Parse data from params
@@ -356,7 +356,7 @@ func removeUser(w http.ResponseWriter, r *http.Request) {
 
 func getUser(w http.ResponseWriter, r *http.Request) {
 	//Prepare header for json response
-	w.Header().Set("Content-Type", "application/json")
+	setHeaders(w)
 	//Assure method is GET
 	if r.Method == "GET" {
 		//Parse data from params
@@ -440,6 +440,12 @@ func checkFileExtension(extensionToCheck string, validExtensions []string) bool 
 
 func isStringEmpty(str string) bool {
 	return len(str) <= 0
+}
+
+func setHeaders(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
 }
 
 func handleRequests() {
