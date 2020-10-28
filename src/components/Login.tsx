@@ -1,5 +1,5 @@
 import React, { Component } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Redirect } from 'react-router-dom'
 
 interface IProps {
     setUserLogged: (val: boolean) => void
@@ -10,6 +10,7 @@ interface IState {
     userID: string
     password: string
     errorText: string
+    shouldRedirect: boolean
 }
 
 export class Login extends Component<IProps, IState> {
@@ -17,7 +18,8 @@ export class Login extends Component<IProps, IState> {
     state: IState = {
         userID: "",
         password: "",
-        errorText: ""
+        errorText: "",
+        shouldRedirect: false
     }
 
     onUserIDChange = (evt: React.ChangeEvent<HTMLInputElement>) => {
@@ -34,6 +36,7 @@ export class Login extends Component<IProps, IState> {
             .then(data => {
                 if (data.code === 200) {
                     this.props.setUserLogged(true)
+                    this.setState({shouldRedirect: true})
                 } else {
                     console.log(data)
                     this.setState({ errorText: data.message });
@@ -52,6 +55,7 @@ export class Login extends Component<IProps, IState> {
                     <button onClick={this.onLogin}>Login</button>
                 </section>
                 <Link className="link" to="/register">Don't have an account? Register!</Link>
+                {this.state.shouldRedirect ? <Redirect to="/acchome" /> : null}
             </section>
         )
     }
