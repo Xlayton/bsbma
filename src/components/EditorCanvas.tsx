@@ -1,6 +1,7 @@
 import React, { Component } from 'react'
-import { Scene, WebGLRenderer, PerspectiveCamera, AmbientLight, Raycaster, Vector2, Camera, Group, Vector3 } from 'three'
-import GLTFLoader from 'three-gltf-loader'
+import { Scene, WebGLRenderer, PerspectiveCamera, AmbientLight, Raycaster, Vector2, Camera, Group, Vector3, Mesh, EdgesGeometry, LineSegments, LineBasicMaterial } from 'three'
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 
 interface IProps { }
 
@@ -9,15 +10,26 @@ interface IState {
     scene: Scene
     camera: Camera
     placementGrid: Group
+    selectedObject: string
+    selectedObjectID: number
+    _notes: Array<{
+        "_time": number
+        "_lineIndex": number
+        "_lineLayer": number
+        "_type": number
+        "_cutDirection": number
+    }>
 }
-
 export class EditorCanvas extends Component<IProps, IState> {
 
     state: IState = {
         beat: 0,
         scene: new Scene(),
         camera: new Camera(),
-        placementGrid: new Group()
+        placementGrid: new Group(),
+        selectedObjectID: 0,
+        selectedObject: "LBlock",
+        "_notes": []
     }
 
     componentDidMount() {
@@ -34,6 +46,11 @@ export class EditorCanvas extends Component<IProps, IState> {
             this.setState({ camera: camera })
             camera.position.set(0, 6, 15);
 
+            const controls = new OrbitControls(camera, renderer.domElement)
+            controls.enableDamping = true
+            controls.dampingFactor = 0.25
+            controls.enableZoom = false
+
             const loader = new GLTFLoader();
             loader.load("./models/GridPane.glb",
                 gltf => {
@@ -46,6 +63,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                     const root = gltf.scene;
                     root.children[0].userData = { "position": 4, "isPlaced": false }
                     root.position.y = 3
+
                     this.state.placementGrid.add(root);
                 });
             loader.load("./models/GridPane.glb",
@@ -53,6 +71,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                     const root = gltf.scene;
                     root.children[0].userData = { "position": 1, "isPlaced": false }
                     root.position.y = 6
+
                     this.state.placementGrid.add(root);
                 });
             loader.load("./models/GridPane.glb",
@@ -60,6 +79,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                     const root = gltf.scene;
                     root.children[0].userData = { "position": 6, "isPlaced": false }
                     root.position.z = 3
+
                     this.state.placementGrid.add(root);
                 });
             loader.load("./models/GridPane.glb",
@@ -68,6 +88,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                     root.children[0].userData = { "position": 3, "isPlaced": false }
                     root.position.z = 3
                     root.position.y = 3
+
                     this.state.placementGrid.add(root);
                 });
             loader.load("./models/GridPane.glb",
@@ -76,6 +97,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                     root.children[0].userData = { "position": 0, "isPlaced": false }
                     root.position.z = 3
                     root.position.y = 6
+
                     this.state.placementGrid.add(root);
                 });
             loader.load("./models/GridPane.glb",
@@ -83,6 +105,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                     const root = gltf.scene;
                     root.children[0].userData = { "position": 8, "isPlaced": false }
                     root.position.z = -3
+
                     this.state.placementGrid.add(root);
                 });
             loader.load("./models/GridPane.glb",
@@ -91,6 +114,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                     root.children[0].userData = { "position": 5, "isPlaced": false }
                     root.position.z = -3
                     root.position.y = 3
+
                     this.state.placementGrid.add(root);
                 });
             loader.load("./models/GridPane.glb",
@@ -99,9 +123,9 @@ export class EditorCanvas extends Component<IProps, IState> {
                     root.children[0].userData = { "position": 2, "isPlaced": false }
                     root.position.z = -3
                     root.position.y = 6
+
                     this.state.placementGrid.add(root);
                 });
-            this.state.placementGrid.renderOrder = 0
             scene.add(this.state.placementGrid)
             let quat = this.state.placementGrid.quaternion
             this.state.placementGrid.rotateY(45 * Math.PI / 180)
@@ -113,7 +137,7 @@ export class EditorCanvas extends Component<IProps, IState> {
             const raycaster = new Raycaster();
             canvasArea.addEventListener('click', evt => this.placeBlock(evt, canvas, camera, raycaster, scene, loader), false);
             canvasArea.addEventListener('contextmenu', evt => this.removeBlock(evt, canvas, camera, raycaster, scene), false);
-
+            window.addEventListener('keydown', evt => this.changeSelectedObject(evt))
             this.animate(camera, renderer, scene, canvasArea, raycaster);
         }
     }
@@ -127,24 +151,35 @@ export class EditorCanvas extends Component<IProps, IState> {
         var intersects = raycaster.intersectObjects(scene.children, true);
         if (intersects.length > 0) {
             let gridCellData = intersects[0].object.userData
-            console.log(gridCellData)
-            if (!gridCellData.isPlaced) {
+            if (!gridCellData.isPlaced && gridCellData.isPlaced !== undefined) {
                 gridCellData.isPlaced = true;
-                loader.load("./models/LBlock.glb",
+                loader.load(`./models/${this.state.selectedObject}.glb`,
                     gltf => {
                         const root = gltf.scene;
                         root.renderOrder = 1
-                        // root.translateX(1)
-                        root.scale.set(.75, .75, .75)
+                        root.scale.set(.75, .75, .75);
+                        (root.children[0] as Mesh).geometry.rotateZ(180 * Math.PI / 180);
+                        (root.children[0] as Mesh).geometry.rotateX(180 * Math.PI / 180);
                         root.userData = { "beat": this.state.beat, "position": gridCellData.position }
                         if (intersects[0].object.parent && intersects[0].object.parent.parent) {
-
                             root.setRotationFromEuler(this.state.placementGrid.rotation)
                             root.applyQuaternion(this.state.placementGrid.quaternion)
                             let vector = new Vector3()
                             intersects[0].object.parent.getWorldPosition(vector)
                             root.position.set(vector.x, vector.y, vector.z)
                             root.quaternion.set(this.state.placementGrid.quaternion.x, this.state.placementGrid.quaternion.y, this.state.placementGrid.quaternion.z, this.state.placementGrid.quaternion.w)
+                            const edges = new EdgesGeometry((root.children[0] as Mesh).geometry);
+                            const line = new LineSegments(edges, new LineBasicMaterial({ color: 0xffffff }));
+                            root.add(line);
+                            let notes = [...this.state._notes];
+                            notes.push({
+                                "_lineIndex": 0,
+                                "_lineLayer": 0,
+                                "_time": this.state.beat,
+                                "_type": this.state.selectedObjectID,
+                                "_cutDirection": 1
+                            })
+                            this.setState({ _notes: notes }, () => console.log(this.state._notes))
                         }
                         scene.add(root)
                     });
@@ -158,7 +193,6 @@ export class EditorCanvas extends Component<IProps, IState> {
         tempMouse.x = (event.clientX / (window.innerWidth + rect.left)) * 2 - 1;
         tempMouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(tempMouse, camera);
-        // let meshes = scene.children.filter(val => val.type === "Scene").map(val => val.children.filter(val => val.type === "Mesh")).map(val => val[0])
         var intersects = raycaster.intersectObjects(scene.children, true);
         let gridCellIntersects = intersects.filter(intersect => intersect.object.userData.isPlaced)
         if (gridCellIntersects.length > 0) {
@@ -194,6 +228,23 @@ export class EditorCanvas extends Component<IProps, IState> {
             cell.getWorldPosition(cellPos)
             note.position.z - cellPos.z > 3 ? note.visible = false : note.visible = true
         })
+    }
+
+    changeSelectedObject(evt: KeyboardEvent) {
+        switch (evt.key) {
+            case "1":
+                this.setState({ selectedObject: "LBlock", selectedObjectID: 0 })
+                break;
+            case "2":
+                this.setState({ selectedObject: "RBlock", selectedObjectID: 1 })
+                break;
+            case "3":
+                this.setState({ selectedObject: "Wall", selectedObjectID: 2 })
+                break;
+            case "4":
+                this.setState({ selectedObject: "Mine", selectedObjectID: 3 })
+                break;
+        }
     }
 
     render() {
