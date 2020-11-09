@@ -44,7 +44,7 @@ export class EditorCanvas extends Component<IProps, IState> {
 
             const camera = new PerspectiveCamera(75, canvasArea.offsetWidth, canvasArea.offsetHeight, 0.1);
             this.setState({ camera: camera })
-            camera.position.set(0, 6, 15);
+            camera.position.set(0, 6, 20);
 
             const controls = new OrbitControls(camera, renderer.domElement)
             controls.enableDamping = true
@@ -55,29 +55,13 @@ export class EditorCanvas extends Component<IProps, IState> {
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
-                    root.children[0].userData = { "position": 7, "isPlaced": false }
+                    root.children[0].userData = { "lineIndex": 0, "lineLayer": 0, "isPlaced": false }
                     this.state.placementGrid.add(root);
                 });
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
-                    root.children[0].userData = { "position": 4, "isPlaced": false }
-                    root.position.y = 3
-
-                    this.state.placementGrid.add(root);
-                });
-            loader.load("./models/GridPane.glb",
-                gltf => {
-                    const root = gltf.scene;
-                    root.children[0].userData = { "position": 1, "isPlaced": false }
-                    root.position.y = 6
-
-                    this.state.placementGrid.add(root);
-                });
-            loader.load("./models/GridPane.glb",
-                gltf => {
-                    const root = gltf.scene;
-                    root.children[0].userData = { "position": 6, "isPlaced": false }
+                    root.children[0].userData = { "lineIndex": 1, "lineLayer": 0, "isPlaced": false }
                     root.position.z = 3
 
                     this.state.placementGrid.add(root);
@@ -85,44 +69,84 @@ export class EditorCanvas extends Component<IProps, IState> {
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
-                    root.children[0].userData = { "position": 3, "isPlaced": false }
-                    root.position.z = 3
+                    root.children[0].userData = { "lineIndex": 2, "lineLayer": 0, "isPlaced": false }
+                    root.position.z = 6
+
+                    this.state.placementGrid.add(root);
+                });
+            loader.load("./models/GridPane.glb",
+                gltf => {
+                    const root = gltf.scene;
+                    root.children[0].userData = { "lineIndex": 3, "lineLayer": 0, "isPlaced": false }
+                    root.position.z = 9
+
+                    this.state.placementGrid.add(root);
+                });
+            loader.load("./models/GridPane.glb",
+                gltf => {
+                    const root = gltf.scene;
+                    root.children[0].userData = { "lineIndex": 0, "lineLayer": 1, "isPlaced": false }
                     root.position.y = 3
-
                     this.state.placementGrid.add(root);
                 });
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
-                    root.children[0].userData = { "position": 0, "isPlaced": false }
-                    root.position.z = 3
-                    root.position.y = 6
-
-                    this.state.placementGrid.add(root);
-                });
-            loader.load("./models/GridPane.glb",
-                gltf => {
-                    const root = gltf.scene;
-                    root.children[0].userData = { "position": 8, "isPlaced": false }
-                    root.position.z = -3
-
-                    this.state.placementGrid.add(root);
-                });
-            loader.load("./models/GridPane.glb",
-                gltf => {
-                    const root = gltf.scene;
-                    root.children[0].userData = { "position": 5, "isPlaced": false }
-                    root.position.z = -3
+                    root.children[0].userData = { "lineIndex": 1, "lineLayer": 1, "isPlaced": false }
                     root.position.y = 3
+                    root.position.z = 3
 
                     this.state.placementGrid.add(root);
                 });
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
-                    root.children[0].userData = { "position": 2, "isPlaced": false }
-                    root.position.z = -3
+                    root.children[0].userData = { "lineIndex": 2, "lineLayer": 1, "isPlaced": false }
+                    root.position.y = 3
+                    root.position.z = 6
+
+                    this.state.placementGrid.add(root);
+                });
+            loader.load("./models/GridPane.glb",
+                gltf => {
+                    const root = gltf.scene;
+                    root.children[0].userData = { "lineIndex": 3, "lineLayer": 1, "isPlaced": false }
+                    root.position.y = 3
+                    root.position.z = 9
+
+                    this.state.placementGrid.add(root);
+                });
+            loader.load("./models/GridPane.glb",
+                gltf => {
+                    const root = gltf.scene;
+                    root.children[0].userData = { "lineIndex": 0, "lineLayer": 2, "isPlaced": false }
                     root.position.y = 6
+                    this.state.placementGrid.add(root);
+                });
+            loader.load("./models/GridPane.glb",
+                gltf => {
+                    const root = gltf.scene;
+                    root.children[0].userData = { "lineIndex": 1, "lineLayer": 2, "isPlaced": false }
+                    root.position.y = 6
+                    root.position.z = 3
+
+                    this.state.placementGrid.add(root);
+                });
+            loader.load("./models/GridPane.glb",
+                gltf => {
+                    const root = gltf.scene;
+                    root.children[0].userData = { "lineIndex": 2, "lineLayer": 2, "isPlaced": false }
+                    root.position.y = 6
+                    root.position.z = 6
+
+                    this.state.placementGrid.add(root);
+                });
+            loader.load("./models/GridPane.glb",
+                gltf => {
+                    const root = gltf.scene;
+                    root.children[0].userData = { "lineIndex": 3, "lineLayer": 2, "isPlaced": false }
+                    root.position.y = 6
+                    root.position.z = 9
 
                     this.state.placementGrid.add(root);
                 });
@@ -144,10 +168,9 @@ export class EditorCanvas extends Component<IProps, IState> {
     placeBlock = (event: MouseEvent, canvas: HTMLCanvasElement, camera: Camera, raycaster: Raycaster, scene: Scene, loader: GLTFLoader) => {
         let tempMouse = new Vector2()
         let rect = canvas.getBoundingClientRect();
-        tempMouse.x = (event.clientX / (window.innerWidth + rect.left + .2)) * 2 - 1;
-        tempMouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+        tempMouse.x = (event.clientX / (window.innerWidth + rect.left)) * 2 - 1;
+        tempMouse.y = - (event.clientY / window.innerHeight + rect.top) * 2 + 1;
         raycaster.setFromCamera(tempMouse, camera);
-        // let meshes = scene.children.filter(val => val.type === "Scene").map(val => val.children.filter(val => val.type === "Mesh")).map(val => val[0])
         var intersects = raycaster.intersectObjects(scene.children, true);
         if (intersects.length > 0) {
             let gridCellData = intersects[0].object.userData
@@ -160,7 +183,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                         root.scale.set(.75, .75, .75);
                         (root.children[0] as Mesh).geometry.rotateZ(180 * Math.PI / 180);
                         (root.children[0] as Mesh).geometry.rotateX(180 * Math.PI / 180);
-                        root.userData = { "beat": this.state.beat, "position": gridCellData.position }
+                        root.userData = { "beat": this.state.beat, "lineIndex": gridCellData.lineIndex, "lineLayer": gridCellData.lineLayer }
                         if (intersects[0].object.parent && intersects[0].object.parent.parent) {
                             root.setRotationFromEuler(this.state.placementGrid.rotation)
                             root.applyQuaternion(this.state.placementGrid.quaternion)
@@ -173,13 +196,13 @@ export class EditorCanvas extends Component<IProps, IState> {
                             root.add(line);
                             let notes = [...this.state._notes];
                             notes.push({
-                                "_lineIndex": 0,
-                                "_lineLayer": 0,
+                                "_lineIndex": gridCellData.lineIndex,
+                                "_lineLayer": gridCellData.lineLayer,
                                 "_time": this.state.beat,
                                 "_type": this.state.selectedObjectID,
                                 "_cutDirection": 1
                             })
-                            this.setState({ _notes: notes }, () => console.log(this.state._notes))
+                            this.setState({ _notes: notes })
                         }
                         scene.add(root)
                     });
@@ -198,7 +221,7 @@ export class EditorCanvas extends Component<IProps, IState> {
         if (gridCellIntersects.length > 0) {
             let gridCellData = gridCellIntersects[0].object.userData
             if (gridCellData.isPlaced) {
-                let noteToRemove = scene.children.filter(child => child.userData.position === gridCellData.position && child.userData.beat === this.state.beat)[0]
+                let noteToRemove = scene.children.filter(child => child.userData.lineIndex === gridCellData.lineIndex && child.userData.lineLayer === gridCellData.lineLayer && child.userData.beat === this.state.beat)[0]
                 scene.remove(noteToRemove)
                 gridCellData.isPlaced = false;
             }
@@ -221,12 +244,13 @@ export class EditorCanvas extends Component<IProps, IState> {
         let notes = this.state.scene.children.filter(child => child.userData.beat !== undefined)
         let grid = this.state.placementGrid
         grid.children.forEach(child => child.children[0].userData = { ...child.children[0].userData, isPlaced: false })
+
         notes.forEach(note => note.translateX(evt.deltaY < 0 ? 5 : -5))
         notes.forEach(note => {
-            let cell = this.state.placementGrid.children.filter(child => child.children[0].userData.position === note.userData.position)[0]
+            let cell = this.state.placementGrid.children.filter(child => child.children[0].userData.lineIndex === note.userData.lineIndex && child.children[0].userData.lineLayer === note.userData.lineLayer)[0]
             let cellPos = new Vector3()
             cell.getWorldPosition(cellPos)
-            note.position.z - cellPos.z > 3 ? note.visible = false : note.visible = true
+            cellPos.x - note.position.x > 3 ? note.visible = false : note.visible = true
         })
     }
 

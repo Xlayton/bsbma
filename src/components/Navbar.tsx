@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 
 interface IProps {
     isUserLogged: boolean
+    shouldLogout: () => void
 }
 
 interface IState { }
@@ -51,7 +52,7 @@ export class Navbar extends Component<IProps, IState> {
                 <section className="logout-login">
                     {this.props.isUserLogged ?
                         (
-                            <Link to="/logout">Logout</Link>
+                            <Link to="/logout" onClick={this.props.shouldLogout}>Logout</Link>
                         )
                         :
                         (
