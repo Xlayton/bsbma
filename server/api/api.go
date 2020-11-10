@@ -193,27 +193,27 @@ func makeMap(w http.ResponseWriter, r *http.Request) {
 		}
 		shuffleInt, err := strconv.Atoi(shuffle)
 		if err != nil {
-			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid bpm"})
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid shuffle"})
 			return
 		}
 		shufflePeriodInt, err := strconv.Atoi(shufflePeriod)
 		if err != nil {
-			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid bpm"})
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid shuffle period"})
 			return
 		}
 		previewStartInt, err := strconv.Atoi(previewStart)
 		if err != nil {
-			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid bpm"})
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid preview start"})
 			return
 		}
 		previewDurationInt, err := strconv.Atoi(previewDuration)
 		if err != nil {
-			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid bpm"})
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid preview duration"})
 			return
 		}
 		songTimeOffsetInt, err := strconv.Atoi(songTimeOffset)
 		if err != nil {
-			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid bpm"})
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid song time offset"})
 			return
 		}
 		songid, _ := uuid.NewUUID()
@@ -226,7 +226,7 @@ func makeMap(w http.ResponseWriter, r *http.Request) {
 		err = cmd.Run()
 		if err != nil {
 			json.NewEncoder(w).Encode(GeneralResponse{400, "Error Uploading Audio, Please wait a minute and try again"})
-			log.Println("Error transcoding through ffmpeg. Make sure ffmpeg is installed")
+			log.Println("Error transcoding through ffmpeg. Make sure ffmpeg is installed. If you aren't a dev and seeing this be scared.")
 			log.Println(err)
 			os.Remove(rawFilePath)
 			return
@@ -249,6 +249,65 @@ func makeMap(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.Write([]byte("404 Not Found"))
 	}
+}
+
+func makeBeatmap(w http.ResponseWriter, r *http.Request) {
+	setHeaders(w)
+	if r.Method == "POST" {
+		var form struct {
+			UserUUID          string `json:"useruuid"`
+			MapID             string `json:"mapid"`
+			BeatmapSetType    string `json:"beatmapsettype"`
+			BeatmapDifficulty string `json:"difficulty"`
+		}
+		err := json.NewDecoder(r.Body).Decode(&form)
+		if err != nil {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide necessary information"})
+			return
+		}
+		if isStringEmpty(form.UserUUID) || isStringEmpty(form.MapID) || isStringEmpty(form.BeatmapSetType) || isStringEmpty(form.BeatmapDifficulty) {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide necessary information"})
+			return
+		}
+		var user User
+		client, ctx := getDbConnection()
+		defer client.Disconnect(ctx)
+		coll := client.Database("bsbma").Collection("users")
+		coll.FindOne(context.TODO(), bson.M{"uuid": form.UserUUID}).Decode(&user)
+		if user.UUID != form.UserUUID {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide valid user uuid"})
+			return
+		}
+		var selectedMap *Map
+		for _, m := range user.Maps {
+			if m.ID == form.MapID {
+				selectedMap = &m
+			}
+		}
+		if selectedMap == nil {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide valid map id"})
+			return
+		}
+		var selectedBeatmapSet *BeatmapSet
+		for _, bms := range selectedMap.BeatmapSets {
+			if bms.Type == form.BeatmapSetType {
+				selectedBeatmapSet = &bms
+			}
+		}
+		if selectedBeatmapSet == nil {
+			log.Println("F")
+			selectedBeatmapSet = &BeatmapSet{form.BeatmapSetType, []Beatmap{Beatmap{form.BeatmapDifficulty, "", 0, 0, form.BeatmapDifficulty}}}
+			selectedMap.BeatmapSets = append(selectedMap.BeatmapSets, *selectedBeatmapSet)
+		}
+		// selectedBeatmapSet = append(selectedBeatmapSet.DifficultyBeatmaps, Beatmap{form.BeatmapDifficulty, "", 0, 0, form.BeatmapDifficulty})
+		log.Println(user.Maps[0].BeatmapSets)
+		// update := bson.D{{Key: "$set", Value: bson.D{{Key: "maps", Value: user.Maps}}}}
+		// coll.UpdateOne(context.TODO(), bson.M{"uuid": form.UserUUID}, update)
+		// json.NewEncoder(w).Encode(GeneralResponse{200, "OK"})
+	} else {
+		w.Write([]byte("404 Not Found"))
+	}
+
 }
 
 func editUser(w http.ResponseWriter, r *http.Request) {
@@ -455,6 +514,7 @@ func handleRequests() {
 	http.HandleFunc("/deleteuser", removeUser)
 	http.HandleFunc("/edituser", editUser)
 	http.HandleFunc("/makemap", makeMap)
+	http.HandleFunc("/makebeatmap", makeBeatmap)
 	log.Fatal(http.ListenAndServe(":10000", nil))
 }
 
