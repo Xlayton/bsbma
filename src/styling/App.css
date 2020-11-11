@@ -9,6 +9,12 @@
   position: relative;
 }
 
+#editor-audio {
+  position: absolute;
+  top: 0;
+  right: 0;
+}
+
 /* Nav */
 .nav-area {
   grid-area: nav;

@@ -51,7 +51,7 @@ export default class App extends Component<IProps, IState> {
               <GetStarted />
             </Route>
             <Route exact path="/tryit" >
-              <TryIt />
+              <TryIt apiURL={this.state.apiURL} />
             </Route>
             <Route exact path="/documentation" >
               <Documentation />

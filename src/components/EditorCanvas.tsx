@@ -3,7 +3,10 @@ import { Scene, WebGLRenderer, PerspectiveCamera, AmbientLight, Raycaster, Vecto
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 
-interface IProps { }
+interface IProps {
+    bpm: number
+    songFileURL: string
+}
 
 interface IState {
     beat: number
@@ -19,6 +22,14 @@ interface IState {
         "_type": number
         "_cutDirection": number
     }>
+    _obstacles: Array<{
+        "_time": number
+        "_lineIndex": number
+        "_lineLayer": number
+        "_type": number
+        "_duration": number
+        "_width": number
+    }>
 }
 export class EditorCanvas extends Component<IProps, IState> {
 
@@ -29,7 +40,8 @@ export class EditorCanvas extends Component<IProps, IState> {
         placementGrid: new Group(),
         selectedObjectID: 0,
         selectedObject: "LBlock",
-        "_notes": []
+        "_notes": [],
+        "_obstacles": []
     }
 
     componentDidMount() {
@@ -194,15 +206,27 @@ export class EditorCanvas extends Component<IProps, IState> {
                             const edges = new EdgesGeometry((root.children[0] as Mesh).geometry);
                             const line = new LineSegments(edges, new LineBasicMaterial({ color: 0xffffff }));
                             root.add(line);
-                            let notes = [...this.state._notes];
-                            notes.push({
-                                "_lineIndex": gridCellData.lineIndex,
-                                "_lineLayer": gridCellData.lineLayer,
-                                "_time": this.state.beat,
-                                "_type": this.state.selectedObjectID,
-                                "_cutDirection": 1
-                            })
-                            this.setState({ _notes: notes })
+                            if (this.state.selectedObject !== "Wall") {
+                                let notes = [...this.state._notes];
+                                notes.push({
+                                    "_lineIndex": gridCellData.lineIndex,
+                                    "_lineLayer": gridCellData.lineLayer,
+                                    "_time": this.state.beat,
+                                    "_type": this.state.selectedObjectID,
+                                    "_cutDirection": 1
+                                })
+                                this.setState({ _notes: notes })
+                            } else {
+                                let obstacles = [...this.state._obstacles]
+                                obstacles.push({
+                                    "_lineIndex": gridCellData.lineIndex,
+                                    "_lineLayer": gridCellData.lineLayer,
+                                    "_time": this.state.beat,
+                                    "_type": 263266,
+                                    "_duration": 1,
+                                    "_width": 2000
+                                })
+                            }
                         }
                         scene.add(root)
                     });
@@ -236,22 +260,35 @@ export class EditorCanvas extends Component<IProps, IState> {
     moveBeat(evt: React.WheelEvent<HTMLDivElement>) {
         if (evt.deltaY < 0) {
             this.setState({ beat: this.state.beat + 1 })
+            let notes = this.state.scene.children.filter(child => child.userData.beat !== undefined)
+            let grid = this.state.placementGrid
+            grid.children.forEach(child => child.children[0].userData = { ...child.children[0].userData, isPlaced: false })
+
+            notes.forEach(note => note.translateX(evt.deltaY < 0 ? -5 : 5))
+            notes.forEach(note => {
+                let cell = this.state.placementGrid.children.filter(child => child.children[0].userData.lineIndex === note.userData.lineIndex && child.children[0].userData.lineLayer === note.userData.lineLayer)[0]
+                let cellPos = new Vector3()
+                cell.getWorldPosition(cellPos)
+                cellPos.x - note.position.x > 3 ? note.visible = false : note.visible = true
+            });
+            (document.getElementById("editor-audio") as HTMLAudioElement).currentTime = parseFloat(`${(this.state.beat / this.props.bpm) * 60}`)
         } else {
             if (this.state.beat > 0) {
                 this.setState({ beat: this.state.beat - 1 })
+                let notes = this.state.scene.children.filter(child => child.userData.beat !== undefined)
+                let grid = this.state.placementGrid
+                grid.children.forEach(child => child.children[0].userData = { ...child.children[0].userData, isPlaced: false })
+
+                notes.forEach(note => note.translateX(evt.deltaY < 0 ? -5 : 5))
+                notes.forEach(note => {
+                    let cell = this.state.placementGrid.children.filter(child => child.children[0].userData.lineIndex === note.userData.lineIndex && child.children[0].userData.lineLayer === note.userData.lineLayer)[0]
+                    let cellPos = new Vector3()
+                    cell.getWorldPosition(cellPos)
+                    cellPos.x - note.position.x > 3 ? note.visible = false : note.visible = true
+                });
+                (document.getElementById("editor-audio") as HTMLAudioElement).currentTime = parseFloat(`${(this.state.beat / this.props.bpm) * 60}`)
             }
         }
-        let notes = this.state.scene.children.filter(child => child.userData.beat !== undefined)
-        let grid = this.state.placementGrid
-        grid.children.forEach(child => child.children[0].userData = { ...child.children[0].userData, isPlaced: false })
-
-        notes.forEach(note => note.translateX(evt.deltaY < 0 ? 5 : -5))
-        notes.forEach(note => {
-            let cell = this.state.placementGrid.children.filter(child => child.children[0].userData.lineIndex === note.userData.lineIndex && child.children[0].userData.lineLayer === note.userData.lineLayer)[0]
-            let cellPos = new Vector3()
-            cell.getWorldPosition(cellPos)
-            cellPos.x - note.position.x > 3 ? note.visible = false : note.visible = true
-        })
     }
 
     changeSelectedObject(evt: KeyboardEvent) {
@@ -273,7 +310,10 @@ export class EditorCanvas extends Component<IProps, IState> {
 
     render() {
         return (
-            <div id="canvas-area" onWheel={(evt) => this.moveBeat(evt)}></div>
+            <>
+                <div id="canvas-area" onWheel={(evt) => this.moveBeat(evt)}></div>
+                <audio id="editor-audio" src={this.props.songFileURL} controls />
+            </>
         )
     }
 }
