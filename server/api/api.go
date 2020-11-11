@@ -36,38 +36,39 @@ type Beatmap struct {
 
 //BeatmapSet is a set of beatmaps for a certain type of gameplay
 type BeatmapSet struct {
-	Type               string    `json:"type"`
-	DifficultyBeatmaps []Beatmap `json:"beatmaps"`
+	ID                   string   `json:"id"`
+	Type                 string   `json:"type"`
+	DifficultyBeatmapIds []string `json:"beatmapids"`
 }
 
 //Map struct to represent a map contained by a user in the db
 type Map struct {
-	ID              string       `json:"id"`
-	Version         string       `json:"version"`
-	Name            string       `json:"name"`
-	Subname         string       `json:"subname,omitempty"`
-	Artist          string       `json:"artist"`
-	Creator         string       `json:"creator"`
-	CoverImage      string       `json:"coverimage"`
-	EnvironmentName string       `json:"environmentname"`
-	Song            string       `json:"song"`
-	Bpm             int          `json:"bpm"`
-	Shuffle         int          `json:"shuffle"`
-	ShufflePeriod   int          `json:"shuffleperiod"`
-	PreviewStart    int          `json:"previewstart"`
-	PreviewDuration int          `json:"previewduration"`
-	SongTimeOffset  int          `json:"songtimeoffset"`
-	BeatmapSets     []BeatmapSet `json:"beatmapsets"`
+	ID              string   `json:"id"`
+	Version         string   `json:"version"`
+	Name            string   `json:"name"`
+	Subname         string   `json:"subname,omitempty"`
+	Artist          string   `json:"artist"`
+	Creator         string   `json:"creator"`
+	CoverImage      string   `json:"coverimage"`
+	EnvironmentName string   `json:"environmentname"`
+	Song            string   `json:"song"`
+	Bpm             int      `json:"bpm"`
+	Shuffle         int      `json:"shuffle"`
+	ShufflePeriod   int      `json:"shuffleperiod"`
+	PreviewStart    int      `json:"previewstart"`
+	PreviewDuration int      `json:"previewduration"`
+	SongTimeOffset  int      `json:"songtimeoffset"`
+	BeatmapSetIDs   []string `json:"beatmapsetids"`
 }
 
 //User struct to represent a user in the db
 type User struct {
-	UUID         string `json:"uuid"`
-	Username     string `json:"username"`
-	Email        string `json:"email"`
-	PassHash     string `json:"password"`
-	ProfileImage string `json:"image"`
-	Maps         []Map  `json:"maps"`
+	UUID         string   `json:"uuid"`
+	Username     string   `json:"username"`
+	Email        string   `json:"email"`
+	PassHash     string   `json:"password"`
+	ProfileImage string   `json:"image"`
+	MapIds       []string `json:"mapids"`
 }
 
 //GeneralResponse represents a JSON response back to the client on failure
@@ -130,7 +131,7 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		defer client.Disconnect(ctx)
 		coll := client.Database("bsbma").Collection("users")
 		userID, _ := uuid.NewUUID()
-		testUser := User{userID.String(), username, email, string(passwordHash), "/static" + imageFilePath[1:], []Map{}}
+		testUser := User{userID.String(), username, email, string(passwordHash), "/static" + imageFilePath[1:], []string{}}
 		_, err = coll.InsertOne(context.TODO(), testUser)
 		if err != nil {
 			log.Fatal(err)
@@ -181,9 +182,21 @@ func makeMap(w http.ResponseWriter, r *http.Request) {
 		previewStart := r.FormValue("previewstart")
 		previewDuration := r.FormValue("previewduration")
 		songTimeOffset := r.FormValue("songtimeoffset")
-
 		if isStringEmpty(userUUID) || isStringEmpty(version) || isStringEmpty(name) || isStringEmpty(artist) || isStringEmpty(environmentName) || isStringEmpty(bpm) || isStringEmpty(shuffle) || isStringEmpty(shufflePeriod) || isStringEmpty(previewStart) || isStringEmpty(previewDuration) || isStringEmpty(songTimeOffset) {
 			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid fields"})
+			return
+		}
+		client, ctx := getDbConnection()
+		defer client.Disconnect(ctx)
+		coll := client.Database("bsbma").Collection("users")
+		var user User
+		coll.FindOne(context.TODO(), bson.M{"uuid": userUUID}).Decode(&user)
+		if isStringEmpty(user.UUID) {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Invalid User UUID"})
+			return
+		}
+		if len(user.MapIds) > 3 {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "You already have created the maximum amount of maps you can"})
 			return
 		}
 		bpmInt, err := strconv.Atoi(bpm)
@@ -193,27 +206,27 @@ func makeMap(w http.ResponseWriter, r *http.Request) {
 		}
 		shuffleInt, err := strconv.Atoi(shuffle)
 		if err != nil {
-			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid bpm"})
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid shuffle"})
 			return
 		}
 		shufflePeriodInt, err := strconv.Atoi(shufflePeriod)
 		if err != nil {
-			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid bpm"})
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid shuffle period"})
 			return
 		}
 		previewStartInt, err := strconv.Atoi(previewStart)
 		if err != nil {
-			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid bpm"})
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid preview start"})
 			return
 		}
 		previewDurationInt, err := strconv.Atoi(previewDuration)
 		if err != nil {
-			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid bpm"})
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid preview duration"})
 			return
 		}
 		songTimeOffsetInt, err := strconv.Atoi(songTimeOffset)
 		if err != nil {
-			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid bpm"})
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid song time offset"})
 			return
 		}
 		songid, _ := uuid.NewUUID()
@@ -226,7 +239,7 @@ func makeMap(w http.ResponseWriter, r *http.Request) {
 		err = cmd.Run()
 		if err != nil {
 			json.NewEncoder(w).Encode(GeneralResponse{400, "Error Uploading Audio, Please wait a minute and try again"})
-			log.Println("Error transcoding through ffmpeg. Make sure ffmpeg is installed")
+			log.Println("Error transcoding through ffmpeg. Make sure ffmpeg is installed. If you aren't a dev and seeing this be scared.")
 			log.Println(err)
 			os.Remove(rawFilePath)
 			return
@@ -237,15 +250,108 @@ func makeMap(w http.ResponseWriter, r *http.Request) {
 		imageFilePath := "./image/" + imageidString + imageExt
 		io.Copy(&buf, imagefile)
 		ioutil.WriteFile(imageFilePath, buf.Bytes(), 0644)
+		createdMap := Map{mapidstring, version, name, subname, artist, user.Username, imageFilePath[1:], environmentName, songFilePath[1:], bpmInt, shuffleInt, shufflePeriodInt, previewStartInt, previewDurationInt, songTimeOffsetInt, []string{}}
+		update := bson.D{{Key: "$push", Value: bson.D{{Key: "mapids", Value: mapidstring}}}}
+		coll.UpdateOne(context.TODO(), bson.M{"uuid": userUUID}, update)
+		client.Disconnect(ctx)
+		client, ctx = getDbConnection()
+		defer client.Disconnect(ctx)
+		coll = client.Database("bsbma").Collection("maps")
+		coll.InsertOne(context.TODO(), createdMap)
+		json.NewEncoder(w).Encode(GeneralResponse{200, "Ok"})
+	} else {
+		w.Write([]byte("404 Not Found"))
+	}
+}
+
+func makeBeatmapSet(w http.ResponseWriter, r *http.Request) {
+	setHeaders(w)
+	if r.Method == "POST" {
+		var form struct {
+			UserUUID string `json:"useruuid"`
+			MapID    string `json:"mapid"`
+			Type     string `json:"type"`
+		}
+		err := json.NewDecoder(r.Body).Decode(&form)
+		if err != nil {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide necessary information"})
+			return
+		}
+		if isStringEmpty(form.UserUUID) || isStringEmpty(form.MapID) || isStringEmpty(form.Type) {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide necessary information"})
+			return
+		}
+		var user User
 		client, ctx := getDbConnection()
 		defer client.Disconnect(ctx)
 		coll := client.Database("bsbma").Collection("users")
-		var user User
-		coll.FindOne(context.TODO(), bson.M{"uuid": userUUID}).Decode(&user)
-		createdMap := Map{mapidstring, version, name, subname, artist, user.Username, imageFilePath[1:], environmentName, songFilePath[1:], bpmInt, shuffleInt, shufflePeriodInt, previewStartInt, previewDurationInt, songTimeOffsetInt, []BeatmapSet{}}
-		update := bson.D{{Key: "$push", Value: bson.D{{Key: "maps", Value: createdMap}}}}
-		coll.UpdateOne(context.TODO(), bson.M{"uuid": userUUID}, update)
-		json.NewEncoder(w).Encode(GeneralResponse{200, "Ok"})
+		coll.FindOne(context.TODO(), bson.M{"uuid": form.UserUUID}).Decode(&user)
+		if user.UUID != form.UserUUID || !userContainsMap(user, form.MapID) {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide valid user uuid and map id"})
+			return
+		}
+		client.Disconnect(ctx)
+		var selectedMap Map
+		client, ctx = getDbConnection()
+		defer client.Disconnect(ctx)
+		coll = client.Database("bsbma").Collection("maps")
+		coll.FindOne(context.TODO(), bson.M{"id": form.MapID}).Decode(&selectedMap)
+		client.Disconnect(ctx)
+		client, ctx = getDbConnection()
+		defer client.Disconnect(ctx)
+		coll = client.Database("bsbma").Collection("beatmapsets")
+		var beatmapset BeatmapSet
+		for _, beatmapsetid := range selectedMap.BeatmapSetIDs {
+			coll.FindOne(context.TODO(), bson.M{"id": beatmapsetid}).Decode(&beatmapset)
+			if beatmapset.Type == form.Type {
+				json.NewEncoder(w).Encode(GeneralResponse{400, "Beatmap Set with given Type already exists for this map"})
+				return
+			}
+		}
+		beatmapsetUUID, _ := uuid.NewUUID()
+		beatmapsetString := beatmapsetUUID.String()
+		beatmapset = BeatmapSet{beatmapsetString, form.Type, []string{}}
+		coll.InsertOne(context.TODO(), beatmapset)
+		client.Disconnect(ctx)
+		client, ctx = getDbConnection()
+		defer client.Disconnect(ctx)
+		coll = client.Database("bsbma").Collection("maps")
+		update := bson.D{{Key: "$push", Value: bson.D{{Key: "beatmapsetids", Value: beatmapsetString}}}}
+		coll.UpdateOne(context.TODO(), bson.M{"id": form.MapID}, update)
+	}
+}
+
+func makeBeatmap(w http.ResponseWriter, r *http.Request) {
+	setHeaders(w)
+	if r.Method == "POST" {
+		var form struct {
+			UserUUID          string `json:"useruuid"`
+			BeatmapDifficulty string `json:"difficulty"`
+			BeatmapSetID      string `json:"beatmapsetid"`
+		}
+		err := json.NewDecoder(r.Body).Decode(&form)
+		if err != nil {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide necessary information"})
+			return
+		}
+		if isStringEmpty(form.UserUUID) || isStringEmpty(form.BeatmapDifficulty) || isStringEmpty(form.BeatmapSetID) {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide necessary information"})
+			return
+		}
+		beatmapUUID, _ := uuid.NewUUID()
+		beatmapUUIDString := beatmapUUID.String()
+		client, ctx := getDbConnection()
+		defer client.Disconnect(ctx)
+		coll := client.Database("bsbma").Collection("beatmapsets")
+		update := bson.D{{Key: "$push", Value: bson.D{{Key: "difficultybeatmapids", Value: beatmapUUIDString}}}}
+		coll.UpdateOne(context.TODO(), bson.M{"id": form.BeatmapSetID}, update)
+		client.Disconnect(ctx)
+		client, ctx = getDbConnection()
+		defer client.Disconnect(ctx)
+		coll = client.Database("bsbma").Collection("beatmaps")
+		beatmap := Beatmap{form.BeatmapDifficulty, "", 15, 15, form.BeatmapDifficulty}
+		coll.InsertOne(context.TODO(), beatmap)
+		json.NewEncoder(w).Encode(GeneralResponse{200, "OK"})
 	} else {
 		w.Write([]byte("404 Not Found"))
 	}
@@ -448,13 +554,25 @@ func setHeaders(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
+func userContainsMap(user User, mapID string) bool {
+	for _, id := range user.MapIds {
+		if id == mapID {
+			return true
+		}
+	}
+	return false
+}
+
 func handleRequests() {
 	http.Handle("/static/image/", http.StripPrefix("/static/image/", http.FileServer(http.Dir("./image"))))
+	http.Handle("/static/audio/", http.StripPrefix("/static/audio/", http.FileServer(http.Dir("./audio"))))
 	http.HandleFunc("/getuser", getUser)
 	http.HandleFunc("/insertuser", createUser)
 	http.HandleFunc("/deleteuser", removeUser)
 	http.HandleFunc("/edituser", editUser)
 	http.HandleFunc("/makemap", makeMap)
+	http.HandleFunc("/makebeatmap", makeBeatmap)
+	http.HandleFunc("/makebeatmapset", makeBeatmapSet)
 	log.Fatal(http.ListenAndServe(":10000", nil))
 }
 
