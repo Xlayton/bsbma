@@ -18,6 +18,14 @@ interface IState {
   isUserLogged: boolean
   apiURL: string
   shouldLogout: boolean
+  user: {
+    email: string,
+    image: string,
+    mapids: Array<String>,
+    password: string,
+    username: string,
+    uuid: string
+  }
 }
 
 export default class App extends Component<IProps, IState> {
@@ -25,15 +33,43 @@ export default class App extends Component<IProps, IState> {
   state: IState = {
     isUserLogged: false,
     apiURL: "http://localhost:10000",
-    shouldLogout: false
+    shouldLogout: false,
+    user: {
+      email: "",
+      image: "",
+      mapids: [],
+      password: "",
+      username: "",
+      uuid: ""
+    },
   }
 
-  setUserLogged = (isUserLogged: boolean) => {
-    this.setState({ isUserLogged: isUserLogged })
+  setUserLogged = (isUserLogged: boolean, userData: {
+    email: "",
+    image: "",
+    mapids: [],
+    password: "",
+    username: "",
+    uuid: ""
+  }) => {
+    window.localStorage.setItem("user-data", JSON.stringify({ isUserLogged, userData }))
+    this.setState({ isUserLogged: isUserLogged, user: userData })
   }
 
   shouldLogout = () => {
+    window.localStorage.clear()
     this.setState({ shouldLogout: true })
+  }
+
+  componentDidMount() {
+    let userData = window.localStorage.getItem("user-data")
+    if (userData) {
+      let userDataParse = JSON.parse(userData)
+      let userLogStatus = userDataParse.isUserLogged === true ? true : false
+      let userInfo = userDataParse.userData
+      console.log(userDataParse)
+      this.setState({ isUserLogged: userLogStatus, user: userInfo })
+    }
   }
 
   render() {
@@ -60,7 +96,7 @@ export default class App extends Component<IProps, IState> {
               <AccountHome isUserLogged={this.state.isUserLogged} />
             </Route>
             <Route exact path="/maps" >
-              <Maps isUserLogged={this.state.isUserLogged} />
+              <Maps apiURL={this.state.apiURL} isUserLogged={this.state.isUserLogged} userUUID={this.state.user.uuid} />
             </Route>
             <Route exact path="/login">
               <Login setUserLogged={this.setUserLogged} apiURL={this.state.apiURL} />

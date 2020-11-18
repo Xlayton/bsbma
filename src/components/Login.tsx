@@ -2,7 +2,14 @@ import React, { Component } from 'react'
 import { Link, Redirect } from 'react-router-dom'
 
 interface IProps {
-    setUserLogged: (val: boolean) => void
+    setUserLogged: (val: boolean, userdata: {
+        email: "",
+        image: "",
+        mapids: [],
+        password: "",
+        username: "",
+        uuid: ""
+    }) => void
     apiURL: string
 }
 
@@ -35,8 +42,9 @@ export class Login extends Component<IProps, IState> {
             .then(res => res.json())
             .then(data => {
                 if (data.code === 200) {
-                    this.props.setUserLogged(true)
-                    this.setState({shouldRedirect: true})
+                    console.log(data)
+                    this.props.setUserLogged(true, data.user)
+                    this.setState({ shouldRedirect: true })
                 } else {
                     console.log(data)
                     this.setState({ errorText: data.message });

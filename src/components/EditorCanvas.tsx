@@ -174,6 +174,15 @@ export class EditorCanvas extends Component<IProps, IState> {
             canvasArea.addEventListener('click', evt => this.placeBlock(evt, canvas, camera, raycaster, scene, loader), false);
             canvasArea.addEventListener('contextmenu', evt => this.removeBlock(evt, canvas, camera, raycaster, scene), false);
             window.addEventListener('keydown', evt => this.changeSelectedObject(evt))
+            let aud = document.getElementById("editor-audio")
+            if (aud) {
+                aud.addEventListener("timeupdate", evt => {
+                    if (!(evt.target as HTMLMediaElement).paused) {
+                        let time = Math.round(100 * (evt.target as HTMLMediaElement).currentTime) / 100
+                        this.setState({ beat: (time / 60) * this.props.bpm })
+                    }
+                })
+            }
             this.animate(camera, renderer, scene, canvasArea, raycaster);
         }
     }
@@ -195,13 +204,13 @@ export class EditorCanvas extends Component<IProps, IState> {
                         root.scale.set(.75, .75, .75);
                         (root.children[0] as Mesh).geometry.rotateZ(180 * Math.PI / 180);
                         (root.children[0] as Mesh).geometry.rotateX(180 * Math.PI / 180);
-                        root.userData = { "beat": this.state.beat, "lineIndex": gridCellData.lineIndex, "lineLayer": gridCellData.lineLayer }
                         if (intersects[0].object.parent && intersects[0].object.parent.parent) {
                             root.setRotationFromEuler(this.state.placementGrid.rotation)
                             root.applyQuaternion(this.state.placementGrid.quaternion)
                             let vector = new Vector3()
                             intersects[0].object.parent.getWorldPosition(vector)
                             root.position.set(vector.x, vector.y, vector.z)
+                            root.userData = { "beat": this.state.beat, "lineIndex": gridCellData.lineIndex, "lineLayer": gridCellData.lineLayer, "baseVec": vector }
                             root.quaternion.set(this.state.placementGrid.quaternion.x, this.state.placementGrid.quaternion.y, this.state.placementGrid.quaternion.z, this.state.placementGrid.quaternion.w)
                             const edges = new EdgesGeometry((root.children[0] as Mesh).geometry);
                             const line = new LineSegments(edges, new LineBasicMaterial({ color: 0xffffff }));
@@ -213,7 +222,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                                     "_lineLayer": gridCellData.lineLayer,
                                     "_time": this.state.beat,
                                     "_type": this.state.selectedObjectID,
-                                    "_cutDirection": 1
+                                    "_cutDirection": 1,
                                 })
                                 this.setState({ _notes: notes })
                             } else {
@@ -255,39 +264,29 @@ export class EditorCanvas extends Component<IProps, IState> {
         camera.aspect = canvasArea.offsetWidth / canvasArea.offsetHeight;
         camera.updateProjectionMatrix();
         requestAnimationFrame(() => this.animate(camera, renderer, scene, canvasArea, raycaster));
+        let notes = this.state.scene.children.filter(child => child.userData.beat !== undefined);
+        notes.forEach(note => {
+            let baseVec = note.userData.baseVec
+            note.position.set(baseVec.x, baseVec.y, baseVec.z)
+            note.translateX((note.userData.beat - this.state.beat) * 5)
+        });
         renderer.render(scene, camera);
     }
     moveBeat(evt: React.WheelEvent<HTMLDivElement>) {
         if (evt.deltaY < 0) {
             this.setState({ beat: this.state.beat + 1 })
-            let notes = this.state.scene.children.filter(child => child.userData.beat !== undefined)
-            let grid = this.state.placementGrid
-            grid.children.forEach(child => child.children[0].userData = { ...child.children[0].userData, isPlaced: false })
-
-            notes.forEach(note => note.translateX(evt.deltaY < 0 ? -5 : 5))
-            notes.forEach(note => {
-                let cell = this.state.placementGrid.children.filter(child => child.children[0].userData.lineIndex === note.userData.lineIndex && child.children[0].userData.lineLayer === note.userData.lineLayer)[0]
-                let cellPos = new Vector3()
-                cell.getWorldPosition(cellPos)
-                cellPos.x - note.position.x > 3 ? note.visible = false : note.visible = true
-            });
+            let grid = this.state.placementGrid;
+            grid.children.forEach(child => child.children[0].userData = { ...child.children[0].userData, isPlaced: false });
             (document.getElementById("editor-audio") as HTMLAudioElement).currentTime = parseFloat(`${(this.state.beat / this.props.bpm) * 60}`)
         } else {
             if (this.state.beat > 0) {
                 this.setState({ beat: this.state.beat - 1 })
-                let notes = this.state.scene.children.filter(child => child.userData.beat !== undefined)
-                let grid = this.state.placementGrid
-                grid.children.forEach(child => child.children[0].userData = { ...child.children[0].userData, isPlaced: false })
-
-                notes.forEach(note => note.translateX(evt.deltaY < 0 ? -5 : 5))
-                notes.forEach(note => {
-                    let cell = this.state.placementGrid.children.filter(child => child.children[0].userData.lineIndex === note.userData.lineIndex && child.children[0].userData.lineLayer === note.userData.lineLayer)[0]
-                    let cellPos = new Vector3()
-                    cell.getWorldPosition(cellPos)
-                    cellPos.x - note.position.x > 3 ? note.visible = false : note.visible = true
-                });
-                (document.getElementById("editor-audio") as HTMLAudioElement).currentTime = parseFloat(`${(this.state.beat / this.props.bpm) * 60}`)
+                let grid = this.state.placementGrid;
+                grid.children.forEach(child => child.children[0].userData = { ...child.children[0].userData, isPlaced: false });
+            } else {
+                this.setState({ beat: 0 })
             }
+            (document.getElementById("editor-audio") as HTMLAudioElement).currentTime = parseFloat(`${(this.state.beat / this.props.bpm) * 60}`);
         }
     }
 

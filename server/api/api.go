@@ -27,6 +27,7 @@ import (
 
 //Beatmap is the playable part of a Map, and is part of a BeatmapSet
 type Beatmap struct {
+	ID              string `json:"id"`
 	Difficulty      string `json:"difficulty"`
 	BeatmapFile     string `json:"beatmapfile"`
 	NoteJumpSpeed   int16  `json:"notejumpspeed"`
@@ -82,6 +83,58 @@ type LoginResponse struct {
 	Code    int16  `json:"code"`
 	Message string `json:"message"`
 	User    User   `json:"user"`
+}
+
+//MapResponse represents JSON response back to client on user map inquiry
+type MapResponse struct {
+	Code    int16  `json:"code"`
+	Message string `json:"message"`
+	Maps    []Map  `json:"maps"`
+}
+
+func deleteMap(w http.ResponseWriter, r *http.Request) {
+	setHeaders(w)
+	if r.Method == "DELETE" {
+		var form struct {
+			UUID  string `json:"uuid"`
+			MapID string `json:"mapid"`
+		}
+		err := json.NewDecoder(r.Body).Decode(&form)
+		if err != nil {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide valid uuid and mapid combo"})
+			return
+		}
+		client, ctx := getDbConnection()
+		defer client.Disconnect(ctx)
+		var user User
+		coll := client.Database("bsbma").Collection("users")
+		coll.FindOne(context.TODO(), bson.M{"uuid": form.UUID}).Decode(&user)
+		if !userContainsMap(user, form.MapID) {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide valid uuid and mapid combo"})
+			return
+		}
+		update := bson.D{{Key: "$pull", Value: bson.D{{Key: "mapids", Value: form.MapID}}}}
+		coll.UpdateOne(context.TODO(), bson.M{"uuid": form.UUID}, update)
+		coll = client.Database("bsbma").Collection("maps")
+		var delMap Map
+		coll.FindOne(context.TODO(), bson.M{"id": form.MapID}).Decode(&delMap)
+		mapImagePath := "." + delMap.CoverImage
+		songPath := "." + delMap.Song
+		os.Remove(mapImagePath)
+		os.Remove(songPath)
+		coll.DeleteOne(context.TODO(), bson.M{"id": form.MapID})
+		for _, bmsetid := range delMap.BeatmapSetIDs {
+			var bmset BeatmapSet
+			coll = client.Database("bsbma").Collection("beatmapsets")
+			coll.FindOne(context.TODO(), bson.M{"id": bmsetid}).Decode(&bmset)
+			for _, dbmid := range bmset.DifficultyBeatmapIds {
+				coll = client.Database("bsbma").Collection("beatmaps")
+				coll.DeleteOne(context.TODO(), bson.M{"id": dbmid})
+			}
+			coll = client.Database("bsbma").Collection("beatmapsets")
+			coll.DeleteOne(context.TODO(), bson.M{"id": bmsetid})
+		}
+	}
 }
 
 func createUser(w http.ResponseWriter, r *http.Request) {
@@ -142,6 +195,37 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(GeneralResponse{200, "Ok"})
 	} else {
 		w.Write([]byte("404 Page not found"))
+	}
+}
+
+func getUserMaps(w http.ResponseWriter, r *http.Request) {
+	//Prepare header for json response
+	setHeaders(w)
+	//Assure method is GET
+	if r.Method == "GET" {
+		//Parse data from params
+		r.ParseForm()
+		//Get and check for required fields
+		userUUID := r.Form.Get("uuid")
+		if isStringEmpty(userUUID) {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide valid username and password"})
+			return
+		}
+		var user User
+		maps := []Map{}
+		client, ctx := getDbConnection()
+		defer client.Disconnect(ctx)
+		coll := client.Database("bsbma").Collection("users")
+		coll.FindOne(context.TODO(), bson.M{"uuid": userUUID}).Decode(&user)
+		coll = client.Database("bsbma").Collection("maps")
+		for _, mapid := range user.MapIds {
+			var userMap Map
+			coll.FindOne(context.TODO(), bson.M{"id": mapid}).Decode(&userMap)
+			maps = append(maps, userMap)
+		}
+		json.NewEncoder(w).Encode(MapResponse{200, "Ok", maps})
+	} else {
+		w.Write([]byte("404 Not Found"))
 	}
 }
 
@@ -349,7 +433,7 @@ func makeBeatmap(w http.ResponseWriter, r *http.Request) {
 		client, ctx = getDbConnection()
 		defer client.Disconnect(ctx)
 		coll = client.Database("bsbma").Collection("beatmaps")
-		beatmap := Beatmap{form.BeatmapDifficulty, "", 15, 15, form.BeatmapDifficulty}
+		beatmap := Beatmap{beatmapUUIDString, form.BeatmapDifficulty, "", 15, 15, form.BeatmapDifficulty}
 		coll.InsertOne(context.TODO(), beatmap)
 		json.NewEncoder(w).Encode(GeneralResponse{200, "OK"})
 	} else {
@@ -573,6 +657,8 @@ func handleRequests() {
 	http.HandleFunc("/makemap", makeMap)
 	http.HandleFunc("/makebeatmap", makeBeatmap)
 	http.HandleFunc("/makebeatmapset", makeBeatmapSet)
+	http.HandleFunc("/getmaps", getUserMaps)
+	http.HandleFunc("/deletemap", deleteMap)
 	log.Fatal(http.ListenAndServe(":10000", nil))
 }
 
