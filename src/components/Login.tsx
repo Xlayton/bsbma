@@ -58,8 +58,8 @@ export class Login extends Component<IProps, IState> {
                 <h1>Login</h1>
                 <p className="error-text">{this.state.errorText}</p>
                 <section className="inputs">
-                    <input type="text" placeholder="Email/Username" value={this.state.userID} onChange={this.onUserIDChange} />
-                    <input type="password" placeholder="Password" value={this.state.password} onChange={this.onPasswordChange} />
+                    <input className="text-input" type="text" placeholder="Email/Username" value={this.state.userID} onChange={this.onUserIDChange} />
+                    <input className="text-input" type="password" placeholder="Password" value={this.state.password} onChange={this.onPasswordChange} />
                     <button onClick={this.onLogin}>Login</button>
                 </section>
                 <Link className="link" to="/register">Don't have an account? Register!</Link>

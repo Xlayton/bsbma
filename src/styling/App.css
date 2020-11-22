@@ -121,3 +121,23 @@
   text-decoration: underline;
   font-style: italic;
 }
+
+#createMapModal {
+  position: absolute;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(155, 155, 155, 0.5);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+#createMapModal article {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  background: rgba(100, 100, 100, 0.5)
+}

@@ -6,6 +6,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 interface IProps {
     bpm: number
     songFileURL: string
+    beatmapFileLoaction?: string
 }
 
 interface IState {
@@ -260,25 +261,20 @@ export class EditorCanvas extends Component<IProps, IState> {
                 scene.remove(noteToRemove)
                 if (!noteToRemove.userData.isWall) {
                     let notes = [...this.state._notes];
-                    console.log("notes Before", notes)
                     notes.forEach(note => {
                         if (note._lineIndex === noteToRemove.userData.lineIndex && note._lineLayer === noteToRemove.userData.lineLayer && note._time === noteToRemove.userData.beat) {
                             notes.splice(notes.indexOf(note), 1)
                         }
                     })
-                    console.log("notes After", notes)
 
                     this.setState({ _notes: notes })
                 } else {
                     let obstacles = [...this.state._obstacles];
-                    console.log("Obstacles Before", obstacles)
                     obstacles.forEach(note => {
                         if (note._lineIndex === noteToRemove.userData.lineIndex && note._lineLayer === noteToRemove.userData.lineLayer && note._time === noteToRemove.userData.beat) {
                             obstacles.splice(obstacles.indexOf(note), 1)
-                            console.log("Found item in workspace", note)
                         }
                     })
-                    console.log("Obstacles After", obstacles)
                     this.setState({ _obstacles: obstacles })
                 }
                 gridCellData.isPlaced = false;
