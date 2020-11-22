@@ -210,7 +210,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                             let vector = new Vector3()
                             intersects[0].object.parent.getWorldPosition(vector)
                             root.position.set(vector.x, vector.y, vector.z)
-                            root.userData = { "beat": this.state.beat, "lineIndex": gridCellData.lineIndex, "lineLayer": gridCellData.lineLayer, "baseVec": vector }
+                            root.userData = { "beat": this.state.beat, "lineIndex": gridCellData.lineIndex, "lineLayer": gridCellData.lineLayer, "baseVec": vector, isWall: false }
                             root.quaternion.set(this.state.placementGrid.quaternion.x, this.state.placementGrid.quaternion.y, this.state.placementGrid.quaternion.z, this.state.placementGrid.quaternion.w)
                             const edges = new EdgesGeometry((root.children[0] as Mesh).geometry);
                             const line = new LineSegments(edges, new LineBasicMaterial({ color: 0xffffff }));
@@ -234,7 +234,9 @@ export class EditorCanvas extends Component<IProps, IState> {
                                     "_type": 263266,
                                     "_duration": 1,
                                     "_width": 2000
-                                })
+                                });
+                                root.userData.isWall = true;
+                                this.setState({ _obstacles: obstacles })
                             }
                         }
                         scene.add(root)
@@ -256,6 +258,29 @@ export class EditorCanvas extends Component<IProps, IState> {
             if (gridCellData.isPlaced) {
                 let noteToRemove = scene.children.filter(child => child.userData.lineIndex === gridCellData.lineIndex && child.userData.lineLayer === gridCellData.lineLayer && child.userData.beat === this.state.beat)[0]
                 scene.remove(noteToRemove)
+                if (!noteToRemove.userData.isWall) {
+                    let notes = [...this.state._notes];
+                    console.log("notes Before", notes)
+                    notes.forEach(note => {
+                        if (note._lineIndex === noteToRemove.userData.lineIndex && note._lineLayer === noteToRemove.userData.lineLayer && note._time === noteToRemove.userData.beat) {
+                            notes.splice(notes.indexOf(note), 1)
+                        }
+                    })
+                    console.log("notes After", notes)
+
+                    this.setState({ _notes: notes })
+                } else {
+                    let obstacles = [...this.state._obstacles];
+                    console.log("Obstacles Before", obstacles)
+                    obstacles.forEach(note => {
+                        if (note._lineIndex === noteToRemove.userData.lineIndex && note._lineLayer === noteToRemove.userData.lineLayer && note._time === noteToRemove.userData.beat) {
+                            obstacles.splice(obstacles.indexOf(note), 1)
+                            console.log("Found item in workspace", note)
+                        }
+                    })
+                    console.log("Obstacles After", obstacles)
+                    this.setState({ _obstacles: obstacles })
+                }
                 gridCellData.isPlaced = false;
             }
         }
