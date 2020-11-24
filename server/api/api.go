@@ -94,7 +94,7 @@ type MapResponse struct {
 
 func deleteMap(w http.ResponseWriter, r *http.Request) {
 	setHeaders(w)
-	if r.Method == "DELETE" {
+	if r.Method == "POST" {
 		var form struct {
 			UUID  string `json:"uuid"`
 			MapID string `json:"mapid"`
