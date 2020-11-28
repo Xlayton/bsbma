@@ -92,6 +92,13 @@ type MapResponse struct {
 	Maps    []Map  `json:"maps"`
 }
 
+//BeatmapSetResponse represents JSON response back to client on user BeatmapSet inquiry
+type BeatmapSetResponse struct {
+	Code       int16      `json:"code"`
+	Message    string     `json:"message"`
+	BeatmapSet BeatmapSet `json:"beatmapset"`
+}
+
 func deleteMap(w http.ResponseWriter, r *http.Request) {
 	setHeaders(w)
 	if r.Method == "POST" {
@@ -402,6 +409,29 @@ func makeBeatmapSet(w http.ResponseWriter, r *http.Request) {
 		coll = client.Database("bsbma").Collection("maps")
 		update := bson.D{{Key: "$push", Value: bson.D{{Key: "beatmapsetids", Value: beatmapsetString}}}}
 		coll.UpdateOne(context.TODO(), bson.M{"id": form.MapID}, update)
+		json.NewEncoder(w).Encode(BeatmapSetResponse{200, "Okay", beatmapset})
+	}
+}
+
+func getBeatmapSet(w http.ResponseWriter, r *http.Request) {
+	setHeaders(w)
+	if r.Method == "GET" {
+		//Parse data from params
+		r.ParseForm()
+		//Get and check for required fields
+		bmsid := r.Form.Get("bmsid")
+		if isStringEmpty(bmsid) {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide valid Beatmap Set Id"})
+			return
+		}
+		client, ctx := getDbConnection()
+		defer client.Disconnect(ctx)
+		var beatmapSet BeatmapSet
+		coll := client.Database("bsbma").Collection("beatmapsets")
+		coll.FindOne(context.TODO(), bson.M{"id": bmsid}).Decode(&beatmapSet)
+		json.NewEncoder(w).Encode(BeatmapSetResponse{200, "Ok", beatmapSet})
+	} else {
+		w.Write([]byte("404 Not Found"))
 	}
 }
 
@@ -659,6 +689,7 @@ func handleRequests() {
 	http.HandleFunc("/makebeatmapset", makeBeatmapSet)
 	http.HandleFunc("/getmaps", getUserMaps)
 	http.HandleFunc("/deletemap", deleteMap)
+	http.HandleFunc("/getbeatmapset", getBeatmapSet)
 	log.Fatal(http.ListenAndServe(":10000", nil))
 }
 
