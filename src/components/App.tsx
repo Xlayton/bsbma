@@ -67,7 +67,6 @@ export default class App extends Component<IProps, IState> {
       let userDataParse = JSON.parse(userData)
       let userLogStatus = userDataParse.isUserLogged === true ? true : false
       let userInfo = userDataParse.userData
-      console.log(userDataParse)
       this.setState({ isUserLogged: userLogStatus, user: userInfo })
     }
   }
@@ -77,7 +76,7 @@ export default class App extends Component<IProps, IState> {
       <article className="app">
         <BrowserRouter>
           <section className="nav-area">
-            <Navbar isUserLogged={this.state.isUserLogged} shouldLogout={this.shouldLogout} />
+            <Navbar isUserLogged={this.state.isUserLogged} shouldLogout={this.shouldLogout} userImagePath={this.state.user.image} apiUrl={this.state.apiURL} />
           </section>
           <section className="content-area">
             <Route exact path="/" >

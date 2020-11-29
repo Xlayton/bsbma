@@ -1,11 +1,12 @@
 import React, { Component } from 'react'
 import Logo from '../images/Logo.png'
-import DefaultProfile from '../images/DefaultProfile.png'
 import { Link } from 'react-router-dom'
 
 interface IProps {
     isUserLogged: boolean
     shouldLogout: () => void
+    userImagePath : string
+    apiUrl: string
 }
 
 interface IState { }
@@ -18,7 +19,7 @@ export class Navbar extends Component<IProps, IState> {
                     {this.props.isUserLogged ?
                         (
                             <>
-                                <img src={DefaultProfile} alt="Logo" />
+                                <img src={this.props.apiUrl + this.props.userImagePath} alt="Logo" />
                             </>
                         )
                         :

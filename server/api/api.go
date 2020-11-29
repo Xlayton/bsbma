@@ -99,6 +99,13 @@ type BeatmapSetResponse struct {
 	BeatmapSet BeatmapSet `json:"beatmapset"`
 }
 
+//BeatmapResponse represents JSON response back to client on user BeatmapSet inquiry
+type BeatmapResponse struct {
+	Code    int16   `json:"code"`
+	Message string  `json:"message"`
+	Beatmap Beatmap `json:"beatmap"`
+}
+
 func deleteMap(w http.ResponseWriter, r *http.Request) {
 	setHeaders(w)
 	if r.Method == "POST" {
@@ -435,6 +442,28 @@ func getBeatmapSet(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getBeatmap(w http.ResponseWriter, r *http.Request) {
+	setHeaders(w)
+	if r.Method == "GET" {
+		//Parse data from params
+		r.ParseForm()
+		//Get and check for required fields
+		beatmapid := r.Form.Get("beatmapid")
+		if isStringEmpty(beatmapid) {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide valid Beatmap Set Id"})
+			return
+		}
+		client, ctx := getDbConnection()
+		defer client.Disconnect(ctx)
+		var beatmap Beatmap
+		coll := client.Database("bsbma").Collection("beatmaps")
+		coll.FindOne(context.TODO(), bson.M{"id": beatmapid}).Decode(&beatmap)
+		json.NewEncoder(w).Encode(BeatmapResponse{200, "Ok", beatmap})
+	} else {
+		w.Write([]byte("404 Not Found"))
+	}
+}
+
 func makeBeatmap(w http.ResponseWriter, r *http.Request) {
 	setHeaders(w)
 	if r.Method == "POST" {
@@ -465,9 +494,26 @@ func makeBeatmap(w http.ResponseWriter, r *http.Request) {
 		coll = client.Database("bsbma").Collection("beatmaps")
 		beatmap := Beatmap{beatmapUUIDString, form.BeatmapDifficulty, "", 15, 15, form.BeatmapDifficulty}
 		coll.InsertOne(context.TODO(), beatmap)
-		json.NewEncoder(w).Encode(GeneralResponse{200, "OK"})
+		json.NewEncoder(w).Encode(BeatmapResponse{200, "OK", beatmap})
 	} else {
 		w.Write([]byte("404 Not Found"))
+	}
+}
+
+func saveBeatmap(w http.ResponseWriter, r *http.Request) {
+	setHeaders(w)
+	if r.Method == "POST" {
+		var form struct {
+			BeatmapID   string `json:"beatmapid"`
+			BeatmapInfo string `json:"beatmapinfo"`
+		}
+		err := json.NewDecoder(r.Body).Decode(&form)
+		if err != nil {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide necessary information"})
+			return
+		}
+		rawFilePath := "./beatmaps/" + form.BeatmapID + ".dat"
+		ioutil.WriteFile(rawFilePath, []byte(form.BeatmapInfo), 0644)
 	}
 }
 
@@ -690,6 +736,8 @@ func handleRequests() {
 	http.HandleFunc("/getmaps", getUserMaps)
 	http.HandleFunc("/deletemap", deleteMap)
 	http.HandleFunc("/getbeatmapset", getBeatmapSet)
+	http.HandleFunc("/getbeatmap", getBeatmap)
+	http.HandleFunc("/savebeatmap", saveBeatmap)
 	log.Fatal(http.ListenAndServe(":10000", nil))
 }
 
