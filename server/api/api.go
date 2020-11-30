@@ -513,7 +513,11 @@ func saveBeatmap(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		rawFilePath := "./beatmaps/" + form.BeatmapID + ".dat"
-		ioutil.WriteFile(rawFilePath, []byte(form.BeatmapInfo), 0644)
+		err = ioutil.WriteFile(rawFilePath, []byte(form.BeatmapInfo), 0644)
+		if err != nil {
+			log.Println(err)
+		}
+		json.NewEncoder(w).Encode(GeneralResponse{200, "OK"})
 	}
 }
 

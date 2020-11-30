@@ -2,11 +2,16 @@ import React, { Component } from 'react'
 import { Scene, WebGLRenderer, PerspectiveCamera, AmbientLight, Raycaster, Vector2, Camera, Group, Vector3, Mesh, EdgesGeometry, LineSegments, LineBasicMaterial } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
+import { Toast } from './notification/Toast'
+import "../styling/notification/Toast.css"
 
 interface IProps {
     bpm: number
     songFileURL: string
     beatmapFileLoaction?: string
+    canSave: boolean
+    apiURL: string
+    beatmapid?: string
 }
 
 interface IState {
@@ -31,6 +36,9 @@ interface IState {
         "_duration": number
         "_width": number
     }>
+    showToast: boolean
+    toastType: "success" | "danger" | ""
+    toastMsg: "Successfully Saved Beatmap" | "Beatmap Save Failed" | ""
 }
 export class EditorCanvas extends Component<IProps, IState> {
 
@@ -42,7 +50,10 @@ export class EditorCanvas extends Component<IProps, IState> {
         selectedObjectID: 0,
         selectedObject: "LBlock",
         "_notes": [],
-        "_obstacles": []
+        "_obstacles": [],
+        showToast: false,
+        toastType: "",
+        toastMsg: ""
     }
 
     componentDidMount() {
@@ -326,11 +337,39 @@ export class EditorCanvas extends Component<IProps, IState> {
                 this.setState({ selectedObject: "Mine", selectedObjectID: 3 })
                 break;
         }
+        if ((evt.key === "s" || evt.key === "S") && this.props.canSave && this.props.beatmapid) {
+            console.log("Saving")
+            console.log(this.props.beatmapid, { _notes: { ...this.state._notes }, _obstacles: { ...this.state._obstacles } })
+            fetch(`${this.props.apiURL}/savebeatmap`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    "beatmapid": this.props.beatmapid,
+                    "beatmapinfo": JSON.stringify({ _notes: { ...this.state._notes }, _obstacles: { ...this.state._obstacles } })
+                })
+            })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.code === 200) {
+                        this.setState({ showToast: true, toastMsg: "Successfully Saved Beatmap", toastType: "success" })
+                    } else {
+                        console.log(data)
+                        this.setState({ showToast: true, toastMsg: "Beatmap Save Failed", toastType: "danger" })
+                    }
+                })
+                .catch((err) => {
+                    console.log(err);
+                    this.setState({ showToast: true, toastMsg: "Beatmap Save Failed", toastType: "danger" })
+                })
+        }
     }
 
     render() {
         return (
             <>
+                <Toast isVisible={this.state.showToast} toastText={this.state.toastMsg} hide={() => this.setState({ showToast: false })} type={this.state.toastType} />
                 <div id="canvas-area" onWheel={(evt) => this.moveBeat(evt)}></div>
                 <audio id="editor-audio" src={this.props.songFileURL} controls />
             </>

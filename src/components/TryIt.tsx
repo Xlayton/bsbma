@@ -10,7 +10,7 @@ export class TryIt extends Component<IProps, IState> {
 
     render() {
         return (
-            <EditorCanvas bpm={127} songFileURL={`${this.props.apiURL}/static/audio/TestSong.ogg`} />
+            <EditorCanvas apiURL={this.props.apiURL} canSave={false} bpm={127} songFileURL={`${this.props.apiURL}/static/audio/TestSong.ogg`} />
         )
     }
 }

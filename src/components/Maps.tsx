@@ -5,6 +5,7 @@ interface IProps {
     isUserLogged: boolean
     userUUID: string
     apiURL: string
+    setSelectedBeatmap: (id: string, beatmapfile: string, songfile: string, difficulty: string, difficultylabel: string, notejumpoffset: number, notejumpspeed: number, bpm: number, after?: () => void) => void
 }
 
 interface IState {
@@ -30,6 +31,7 @@ interface IState {
     beatmapDifs: Array<string>
     shouldShowBeatmapCreate: Array<boolean>
     selectedBeatmapSets: Array<number>
+    shouldRedirectToMap: boolean
 }
 
 export class Maps extends Component<IProps, IState> {
@@ -55,7 +57,8 @@ export class Maps extends Component<IProps, IState> {
         bmsType: [],
         beatmapDifs: [],
         selectedBeatmapSets: [],
-        shownBeatmaps: []
+        shownBeatmaps: [],
+        shouldRedirectToMap: false
     }
 
     onSongAudioChange = (evt: React.ChangeEvent<HTMLInputElement>) => {
@@ -237,14 +240,36 @@ export class Maps extends Component<IProps, IState> {
         })
             .then(res => res.json())
             .then(data => {
-                if(data.code === 200) {
+                if (data.code === 200) {
                     let temp = this.state.shouldShowBeatmapCreate;
                     temp[index] = false;
-                    this.setState({shouldShowBeatmapCreate: temp})
+                    this.setState({ shouldShowBeatmapCreate: temp })
                     let temp2 = this.state.shownBeatmaps;
                     temp2[index].push(data.beatmap)
                 }
             })
+    }
+
+    openBeatmap = (setIndex: number, difIndex: number) => {
+        console.log(this.state.shownBeatmaps[setIndex][difIndex])
+        let origbeatmap = this.state.shownBeatmaps[setIndex][difIndex];
+        let map = this.state.maps[setIndex];
+        let beatmap = {
+            id: origbeatmap.id,
+            beatmapfile: origbeatmap.beatmapfile,
+            songfile: map.song,
+            difficulty: origbeatmap.difficulty,
+            difficultylabel: origbeatmap.difficultylabel,
+            notejumpoffset: origbeatmap.notejumpoffset,
+            notejumpspeed: origbeatmap.notejumpspeed,
+            bpm: map.bpm,
+        }
+        this.props.setSelectedBeatmap(beatmap.id, beatmap.beatmapfile, beatmap.songfile, beatmap.difficulty, beatmap.difficultylabel, beatmap.notejumpoffset, beatmap.notejumpspeed, beatmap.bpm, () => this.setState({shouldRedirectToMap: true}))
+    }
+
+    redirectToMap = () => {
+        return this.state.shouldRedirectToMap ?
+        <Redirect to="/editmap" /> : null
     }
 
     componentDidMount() {
@@ -279,15 +304,21 @@ export class Maps extends Component<IProps, IState> {
                                     <button className="create-bms" onClick={() => { let shows = [...this.state.shouldShowBMSCreate]; shows[index] = !shows[index]; this.setState({ shouldShowBMSCreate: shows }) }}>New Beatmap Set...</button>
                                 </section>
                                 <section className="map-bms-sets">
-                                    {this.state.shownBeatmaps[index] ? this.state.shownBeatmaps[index].map(bm => <div key={bm.id} className="difficulty"><p>{bm.difficulty}</p><div className="difficulty-controls"></div></div>) : null}
+                                    {this.state.shownBeatmaps[index] ? this.state.shownBeatmaps[index].map((bm, bmi) =>
+                                        <div key={bm.id} className="difficulty">
+                                            <p>{bm.difficulty}</p>
+                                            <div className="difficulty-controls">
+                                                <button onClick={() => this.openBeatmap(index, bmi)}>Open {bm.difficulty}</button>
+                                            </div>
+                                        </div>) : null}
                                     <button style={this.state.shouldShowBeatmapCreate[index] ? hideStyle : showStyle} onClick={() => { let shows = [...this.state.shouldShowBeatmapCreate]; shows[index] = !shows[index]; this.setState({ shouldShowBeatmapCreate: shows }) }}>Create Beatmap</button>
                                     <article className="beatmap-create" style={this.state.shouldShowBeatmapCreate[index] ? showStyle : hideStyle}>
-                                        <input type="text" placeholder="Difficulty..." onChange={evt => { let difs = [...this.state.beatmapDifs]; difs[index] = evt.target.value; this.setState({ beatmapDifs: difs }) }} value={this.state.beatmapDifs[index]} />
+                                        <input className="text-input" type="text" placeholder="Difficulty..." onChange={evt => { let difs = [...this.state.beatmapDifs]; difs[index] = evt.target.value; this.setState({ beatmapDifs: difs }) }} value={this.state.beatmapDifs[index]} />
                                         <button onClick={() => this.onCreateBeatmap(this.state.beatmapSets[index][this.state.selectedBeatmapSets[index]].id, index)}>Create Beatmap Set</button>
                                     </article>
                                     <article className="bms-create-modal" style={this.state.shouldShowBMSCreate[index] ? showStyle : hideStyle}>
                                         <div className="bms-create-inputs">
-                                            <input type="text" placeholder="Beatmap Set Type..." onChange={(evt) => { let types = [...this.state.bmsType]; types[index] = evt.target.value; this.setState({ bmsType: types }) }} value={this.state.bmsType[index]} />
+                                            <input className="text-input" type="text" placeholder="Beatmap Set Type..." onChange={(evt) => { let types = [...this.state.bmsType]; types[index] = evt.target.value; this.setState({ bmsType: types }) }} value={this.state.bmsType[index]} />
                                             <button onClick={() => this.onCreateBeatmapSet(map.id, index)}>Create Beatmap Set</button>
                                         </div>
                                     </article>
@@ -325,6 +356,7 @@ export class Maps extends Component<IProps, IState> {
                         </div>
                     </article>
                 </section>
+                {this.redirectToMap()}
             </>
         )
     }
