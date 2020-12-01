@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"log"
@@ -248,7 +249,6 @@ func makeMap(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		//Handles song upload. Was done early because of profile image code.
 		r.ParseMultipartForm(32 << 20)
-		var buf bytes.Buffer
 		file, header, err := r.FormFile("audio")
 		if err != nil {
 			json.NewEncoder(w).Encode(GeneralResponse{400, "Error Uploading Audio, Please wait a minute and try again"})
@@ -327,12 +327,13 @@ func makeMap(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid song time offset"})
 			return
 		}
+		var songBuf bytes.Buffer
 		songid, _ := uuid.NewUUID()
 		songidString := songid.String()
 		songFilePath := "./audio/" + songidString + ".ogg"
-		io.Copy(&buf, file)
+		io.Copy(&songBuf, file)
 		rawFilePath := "./audio/" + header.Filename
-		ioutil.WriteFile(rawFilePath, buf.Bytes(), 0644)
+		ioutil.WriteFile(rawFilePath, songBuf.Bytes(), 0644)
 		cmd := exec.Command("ffmpeg", "-i", rawFilePath, songFilePath)
 		err = cmd.Run()
 		if err != nil {
@@ -343,11 +344,12 @@ func makeMap(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		os.Remove(rawFilePath)
+		var imageBuf bytes.Buffer
 		imageid, _ := uuid.NewUUID()
 		imageidString := imageid.String()
 		imageFilePath := "./image/" + imageidString + imageExt
-		io.Copy(&buf, imagefile)
-		ioutil.WriteFile(imageFilePath, buf.Bytes(), 0644)
+		io.Copy(&imageBuf, imagefile)
+		ioutil.WriteFile(imageFilePath, imageBuf.Bytes(), 0644)
 		createdMap := Map{mapidstring, version, name, subname, artist, user.Username, imageFilePath[1:], environmentName, songFilePath[1:], bpmInt, shuffleInt, shufflePeriodInt, previewStartInt, previewDurationInt, songTimeOffsetInt, []string{}}
 		update := bson.D{{Key: "$push", Value: bson.D{{Key: "mapids", Value: mapidstring}}}}
 		coll.UpdateOne(context.TODO(), bson.M{"uuid": userUUID}, update)
@@ -492,7 +494,7 @@ func makeBeatmap(w http.ResponseWriter, r *http.Request) {
 		client, ctx = getDbConnection()
 		defer client.Disconnect(ctx)
 		coll = client.Database("bsbma").Collection("beatmaps")
-		beatmap := Beatmap{beatmapUUIDString, form.BeatmapDifficulty, "", 15, 15, form.BeatmapDifficulty}
+		beatmap := Beatmap{beatmapUUIDString, form.BeatmapDifficulty, fmt.Sprintf("./beatmaps/%s.dat", beatmapUUIDString), 15, 15, form.BeatmapDifficulty}
 		coll.InsertOne(context.TODO(), beatmap)
 		json.NewEncoder(w).Encode(BeatmapResponse{200, "OK", beatmap})
 	} else {
@@ -666,6 +668,132 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func bundleMap(w http.ResponseWriter, r *http.Request) {
+	setDownloadHeaders(w)
+	if r.Method == "GET" {
+		//Parse data from params
+		r.ParseForm()
+		//Get and check for required fields
+		mapID := r.Form.Get("mapid")
+		userUUID := r.Form.Get("useruuid")
+		if isStringEmpty(mapID) || isStringEmpty(userUUID) {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide all correct fields"})
+		}
+		client, ctx := getDbConnection()
+		defer client.Disconnect(ctx)
+		coll := client.Database("bsbma").Collection("users")
+		var userInfo User
+		coll.FindOne(context.TODO(), bson.M{"uuid": userUUID}).Decode(&userInfo)
+		if !userContainsMap(userInfo, mapID) {
+			fmt.Println("Invalid attempt to bundle map made. " + userUUID + ":" + mapID)
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please own the map your trying to bundle :\\"})
+		}
+		coll = client.Database("bsbma").Collection("maps")
+		var foundMap Map
+		coll.FindOne(context.TODO(), bson.M{"id": mapID}).Decode(&foundMap)
+		allBeatmapSets := []BeatmapSet{}
+		allDifficultyMaps := []Beatmap{}
+		for _, bmsID := range foundMap.BeatmapSetIDs {
+			coll = client.Database("bsbma").Collection("beatmapsets")
+			var foundBMS BeatmapSet
+			coll.FindOne(context.TODO(), bson.M{"id": bmsID}).Decode(&foundBMS)
+			allBeatmapSets = append(allBeatmapSets, foundBMS)
+		}
+		for _, bms := range allBeatmapSets {
+			for _, beatmapID := range bms.DifficultyBeatmapIds {
+				coll = client.Database("bsbma").Collection("beatmaps")
+				var foundBeatmap Beatmap
+				coll.FindOne(context.TODO(), bson.M{"id": beatmapID}).Decode(&foundBeatmap)
+				allDifficultyMaps = append(allDifficultyMaps, foundBeatmap)
+			}
+		}
+		difficultyBeatmaps := ""
+		for i, bms := range allBeatmapSets {
+			beatmapSetString := fmt.Sprintf(`{
+				"_beatmapCharacteristicName": "%s",
+				"_difficultyBeatmaps": [`, bms.Type)
+			foundCount := 0
+			for _, bm := range allDifficultyMaps {
+				if beatmapSetContainsDifficulty(bms, bm.ID) {
+					var difficulty int
+					switch bm.Difficulty {
+					case "Easy":
+						difficulty = 1
+						break
+					case "Normal":
+						difficulty = 3
+						break
+					case "Hard":
+						difficulty = 5
+						break
+					case "Expert":
+						difficulty = 7
+						break
+					case "ExpertPlus":
+						difficulty = 9
+						break
+					default:
+						difficulty = 0
+						break
+					}
+					beatmapString := fmt.Sprintf(`{
+					"_difficulty": "%s",
+          			"_difficultyRank": %d,
+          			"_beatmapFilename": "%s",
+          			"_noteJumpMovementSpeed": %d,
+          			"_noteJumpStartBeatOffset": %d
+					}`, bm.Difficulty, difficulty, bm.BeatmapFile[11:], bm.NoteJumpSpeed, bm.NoteJumpOffset)
+					if foundCount != len(bms.DifficultyBeatmapIds)-1 {
+						beatmapString += ","
+					}
+					beatmapSetString += beatmapString
+					foundCount++
+				}
+			}
+			beatmapSetString += "]}"
+			if i != len(allBeatmapSets)-1 {
+				beatmapSetString += ","
+			}
+			difficultyBeatmaps += beatmapSetString
+		}
+		infoDat := fmt.Sprintf(`{
+			"_version": "%s",
+			"_songName": "%s",
+			"_songSubName": "%s",
+			"_songAuthorName": "%s",
+			"_levelAuthorName": "%s",
+			"_beatsPerMinute": %d,
+			"_shuffle": %d,
+			"_shufflePeriod": %d,
+			"_previewStartTime": %d,
+			"_previewDuration": %d,
+			"_songFilename": "%s",
+			"_coverImageFilename": "%s",
+			"_environmentName": "%s",
+			"_songTimeOffset": %d,
+			"_customData": {
+				"_editors": {
+					"BSBMA": {
+						"version": "0.1"
+					},
+					"_lastEditedBy": "BSBMA"
+				}
+			},
+			"_difficultyBeatmapSets": [
+				%s
+			]
+			}`, foundMap.Version, foundMap.Name, foundMap.Subname, foundMap.Artist, userInfo.Username, foundMap.Bpm, foundMap.Shuffle, foundMap.ShufflePeriod, foundMap.PreviewStart, foundMap.PreviewDuration, foundMap.Song[7:], foundMap.CoverImage[7:], foundMap.EnvironmentName, foundMap.SongTimeOffset, difficultyBeatmaps)
+		folder := fmt.Sprintf("./temp/%s", foundMap.ID)
+		os.MkdirAll(folder, 0755)
+		infoDatPath := folder + "/Info.dat"
+		err := ioutil.WriteFile(infoDatPath, []byte(infoDat), 0644)
+		if err != nil {
+			log.Println(err)
+		}
+		json.NewEncoder(w).Encode(GeneralResponse{200, "OK"})
+	}
+}
+
 func getDbConnection() (*mongo.Client, context.Context) {
 	err := godotenv.Load()
 	if err != nil {
@@ -718,9 +846,27 @@ func setHeaders(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
+func setDownloadHeaders(w http.ResponseWriter) {
+	w.Header().Set("Access-Control-Allow-Headers", "*")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Disposition", "attachment; filename="+"fileName.here")
+	w.Header().Set("Content-Transfer-Encoding", "binary")
+	w.Header().Set("Expires", "0")
+}
+
 func userContainsMap(user User, mapID string) bool {
 	for _, id := range user.MapIds {
 		if id == mapID {
+			return true
+		}
+	}
+	return false
+}
+
+func beatmapSetContainsDifficulty(searchMap BeatmapSet, difficultyID string) bool {
+	for _, id := range searchMap.DifficultyBeatmapIds {
+		if id == difficultyID {
 			return true
 		}
 	}
@@ -742,6 +888,7 @@ func handleRequests() {
 	http.HandleFunc("/getbeatmapset", getBeatmapSet)
 	http.HandleFunc("/getbeatmap", getBeatmap)
 	http.HandleFunc("/savebeatmap", saveBeatmap)
+	http.HandleFunc("/bundlemap", bundleMap)
 	log.Fatal(http.ListenAndServe(":10000", nil))
 }
 
