@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -693,6 +694,8 @@ func bundleMap(w http.ResponseWriter, r *http.Request) {
 		coll.FindOne(context.TODO(), bson.M{"id": mapID}).Decode(&foundMap)
 		allBeatmapSets := []BeatmapSet{}
 		allDifficultyMaps := []Beatmap{}
+		folder := fmt.Sprintf("./temp/%s", foundMap.ID)
+		os.MkdirAll(folder, 0755)
 		for _, bmsID := range foundMap.BeatmapSetIDs {
 			coll = client.Database("bsbma").Collection("beatmapsets")
 			var foundBMS BeatmapSet
@@ -715,6 +718,14 @@ func bundleMap(w http.ResponseWriter, r *http.Request) {
 			foundCount := 0
 			for _, bm := range allDifficultyMaps {
 				if beatmapSetContainsDifficulty(bms, bm.ID) {
+					bminput, bmerr := ioutil.ReadFile(fmt.Sprintf("./beatmaps/%s.dat", bm.ID))
+					if bmerr != nil {
+						log.Println(bmerr)
+					}
+					bmerr = ioutil.WriteFile(fmt.Sprintf("%s/%s%s.dat", folder, bm.Difficulty, bms.Type), bminput, 0644)
+					if bmerr != nil {
+						log.Println(bmerr)
+					}
 					var difficulty int
 					switch bm.Difficulty {
 					case "Easy":
@@ -742,7 +753,7 @@ func bundleMap(w http.ResponseWriter, r *http.Request) {
           			"_beatmapFilename": "%s",
           			"_noteJumpMovementSpeed": %d,
           			"_noteJumpStartBeatOffset": %d
-					}`, bm.Difficulty, difficulty, bm.BeatmapFile[11:], bm.NoteJumpSpeed, bm.NoteJumpOffset)
+					}`, bm.Difficulty, difficulty, fmt.Sprintf("%s%s.dat", bm.Difficulty, bms.Type), bm.NoteJumpSpeed, bm.NoteJumpOffset)
 					if foundCount != len(bms.DifficultyBeatmapIds)-1 {
 						beatmapString += ","
 					}
@@ -781,16 +792,78 @@ func bundleMap(w http.ResponseWriter, r *http.Request) {
 			},
 			"_difficultyBeatmapSets": [
 				%s
-			]
-			}`, foundMap.Version, foundMap.Name, foundMap.Subname, foundMap.Artist, userInfo.Username, foundMap.Bpm, foundMap.Shuffle, foundMap.ShufflePeriod, foundMap.PreviewStart, foundMap.PreviewDuration, foundMap.Song[7:], foundMap.CoverImage[7:], foundMap.EnvironmentName, foundMap.SongTimeOffset, difficultyBeatmaps)
-		folder := fmt.Sprintf("./temp/%s", foundMap.ID)
-		os.MkdirAll(folder, 0755)
-		infoDatPath := folder + "/Info.dat"
-		err := ioutil.WriteFile(infoDatPath, []byte(infoDat), 0644)
+				]
+				}`, foundMap.Version, foundMap.Name, foundMap.Subname, foundMap.Artist, userInfo.Username, foundMap.Bpm, foundMap.Shuffle, foundMap.ShufflePeriod, foundMap.PreviewStart, foundMap.PreviewDuration, fmt.Sprintf("%s.ogg", foundMap.Name), "cover.jpg", foundMap.EnvironmentName, foundMap.SongTimeOffset, difficultyBeatmaps)
+
+		input, err := ioutil.ReadFile(fmt.Sprintf("./%s", foundMap.Song))
 		if err != nil {
 			log.Println(err)
 		}
-		json.NewEncoder(w).Encode(GeneralResponse{200, "OK"})
+		err = ioutil.WriteFile(fmt.Sprintf("%s/%s.ogg", folder, foundMap.Name), input, 0644)
+		if err != nil {
+			log.Println(err)
+		}
+		input2, err := ioutil.ReadFile(fmt.Sprintf("./%s", foundMap.CoverImage))
+		if err != nil {
+			log.Println(err)
+		}
+		err = ioutil.WriteFile(fmt.Sprintf("%s/cover.jpg", folder), input2, 0644)
+		if err != nil {
+			log.Println(err)
+		}
+		infoDatPath := folder + "/Info.dat"
+		err = ioutil.WriteFile(infoDatPath, []byte(infoDat), 0644)
+		if err != nil {
+			log.Println(err)
+		}
+		zipBundle(folder, fmt.Sprintf("%s.zip", folder))
+		os.RemoveAll(folder)
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.zip", foundMap.ID))
+		http.ServeFile(w, r, fmt.Sprintf("./temp/%s.zip", foundMap.ID))
+	}
+}
+
+func zipBundle(source, target string) {
+	baseFolder := source + "/"
+	outFile, err := os.Create(target)
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer outFile.Close()
+	w := zip.NewWriter(outFile)
+	addFiles(w, baseFolder, "")
+	if err != nil {
+		fmt.Println(err)
+	}
+	err = w.Close()
+	if err != nil {
+		fmt.Println(err)
+	}
+}
+
+func addFiles(w *zip.Writer, basePath, baseInZip string) {
+	files, err := ioutil.ReadDir(basePath)
+	if err != nil {
+		fmt.Println(err)
+	}
+	for _, file := range files {
+		if !file.IsDir() {
+			dat, err := ioutil.ReadFile(basePath + file.Name())
+			if err != nil {
+				fmt.Println(err)
+			}
+			f, err := w.Create(baseInZip + file.Name())
+			if err != nil {
+				fmt.Println(err)
+			}
+			_, err = f.Write(dat)
+			if err != nil {
+				fmt.Println(err)
+			}
+		} else if file.IsDir() {
+			newBase := basePath + file.Name() + "/"
+			addFiles(w, newBase, baseInZip+file.Name()+"/")
+		}
 	}
 }
 
