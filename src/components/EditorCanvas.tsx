@@ -21,6 +21,8 @@ interface IState {
     placementGrid: Group
     selectedObject: string
     selectedObjectID: number
+    cutDirection: number
+    arrowKeys: Array<boolean>
     _notes: Array<{
         "_time": number
         "_lineIndex": number
@@ -43,6 +45,8 @@ interface IState {
 export class EditorCanvas extends Component<IProps, IState> {
 
     state: IState = {
+        arrowKeys: [false, false, false, false],
+        cutDirection: 1,
         beat: 0,
         scene: new Scene(),
         camera: new Camera(),
@@ -60,6 +64,7 @@ export class EditorCanvas extends Component<IProps, IState> {
         const scene = new Scene();
         this.setState({ scene: scene })
         var renderer = new WebGLRenderer();
+        renderer.autoClearDepth = true;
         let canvasArea = document.getElementById("canvas-area")
         if (canvasArea) {
             renderer.setSize(canvasArea.offsetWidth, canvasArea.offsetHeight);
@@ -71,6 +76,7 @@ export class EditorCanvas extends Component<IProps, IState> {
             camera.position.set(0, 6, 20);
 
             const controls = new OrbitControls(camera, renderer.domElement)
+            controls.enableKeys = false
             controls.enableDamping = true
             controls.dampingFactor = 0.25
             controls.enableZoom = false
@@ -186,6 +192,7 @@ export class EditorCanvas extends Component<IProps, IState> {
             canvasArea.addEventListener('click', evt => this.placeBlock(evt, canvas, camera, raycaster, scene, loader), false);
             canvasArea.addEventListener('contextmenu', evt => this.removeBlock(evt, canvas, camera, raycaster, scene), false);
             window.addEventListener('keydown', evt => this.changeSelectedObject(evt))
+            window.addEventListener('keyup', evt => this.checkArrows(evt))
             let aud = document.getElementById("editor-audio")
             if (aud) {
                 aud.addEventListener("timeupdate", evt => {
@@ -222,8 +229,37 @@ export class EditorCanvas extends Component<IProps, IState> {
                             let vector = new Vector3()
                             intersects[0].object.parent.getWorldPosition(vector)
                             root.position.set(vector.x, vector.y, vector.z)
+                            let rotation = 0;
+                            console.log(this.state.cutDirection)
+                            switch(this.state.cutDirection) {
+                                case 0:
+                                    rotation = 180 * (Math.PI/180)
+                                    break;
+                                case 1:
+                                    rotation = 0;
+                                    break;
+                                case 2:
+                                    rotation = -90 * (Math.PI/180)
+                                    break;
+                                case 3:
+                                    rotation = 90 * (Math.PI/180)
+                                    break;
+                                case 4:
+                                    rotation = -135 * (Math.PI/180)
+                                    break;
+                                case 5:
+                                    rotation = 135 * (Math.PI/180)
+                                    break;
+                                case 6:
+                                    rotation = -45 * (Math.PI/180)
+                                    break;
+                                case 7:
+                                    rotation = 45 * (Math.PI/180)
+                                    break;
+                            }
                             root.userData = { "beat": this.state.beat, "lineIndex": gridCellData.lineIndex, "lineLayer": gridCellData.lineLayer, "baseVec": vector, isWall: false }
                             root.quaternion.set(this.state.placementGrid.quaternion.x, this.state.placementGrid.quaternion.y, this.state.placementGrid.quaternion.z, this.state.placementGrid.quaternion.w)
+                            root.rotateX(rotation)
                             const edges = new EdgesGeometry((root.children[0] as Mesh).geometry);
                             const line = new LineSegments(edges, new LineBasicMaterial({ color: 0xffffff }));
                             root.add(line);
@@ -234,7 +270,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                                     "_lineLayer": gridCellData.lineLayer,
                                     "_time": this.state.beat,
                                     "_type": this.state.selectedObjectID,
-                                    "_cutDirection": 1,
+                                    "_cutDirection": this.state.cutDirection,
                                 })
                                 this.setState({ _notes: notes })
                             } else {
@@ -243,9 +279,9 @@ export class EditorCanvas extends Component<IProps, IState> {
                                     "_lineIndex": gridCellData.lineIndex,
                                     "_lineLayer": gridCellData.lineLayer,
                                     "_time": this.state.beat,
-                                    "_type": 263266,
+                                    "_type": 1,
                                     "_duration": 1,
-                                    "_width": 2000
+                                    "_width": 1
                                 });
                                 root.userData.isWall = true;
                                 this.setState({ _obstacles: obstacles })
@@ -302,6 +338,7 @@ export class EditorCanvas extends Component<IProps, IState> {
             note.position.set(baseVec.x, baseVec.y, baseVec.z)
             note.translateX((note.userData.beat - this.state.beat) * 5)
         });
+        renderer.clearDepth();
         renderer.render(scene, camera);
     }
     moveBeat(evt: React.WheelEvent<HTMLDivElement>) {
@@ -321,22 +358,67 @@ export class EditorCanvas extends Component<IProps, IState> {
             (document.getElementById("editor-audio") as HTMLAudioElement).currentTime = parseFloat(`${(this.state.beat / this.props.bpm) * 60}`);
         }
     }
+    checkArrows(evt: KeyboardEvent) {
+        // TODO implement arrow check
+
+        let arrows = ["ArrowLeft","ArrowUp","ArrowRight","ArrowDown"];
+        if (arrows.includes(evt.key)) {
+            let tempArray = [...this.state.arrowKeys];
+            tempArray[arrows.indexOf(evt.key)] = false;
+            this.setState({arrowKeys: tempArray})
+        } 
+    }
+
+    decideOrientation() {
+
+        if (this.state.arrowKeys[0] && this.state.arrowKeys[1]) {
+            this.setState({ cutDirection: 4 })
+            return;
+        } else if (this.state.arrowKeys[1] && this.state.arrowKeys[2]) {
+            this.setState({ cutDirection: 5 })
+            return;
+        } else if (this.state.arrowKeys[2] && this.state.arrowKeys[3]) {
+            this.setState({ cutDirection: 7 })
+            return;
+        } else if (this.state.arrowKeys[3] && this.state.arrowKeys[0]) {
+            this.setState({ cutDirection: 6 })
+            return;
+        } else if (this.state.arrowKeys[0]) {
+            this.setState({ cutDirection: 2 })
+            return;
+        } else if (this.state.arrowKeys[1]) {
+            this.setState({ cutDirection: 0 })
+            return;
+        } else if (this.state.arrowKeys[2]) {
+            this.setState({ cutDirection: 3 })
+            return;
+        } else if (this.state.arrowKeys[3]) {
+            this.setState({ cutDirection: 1 })
+            return;
+        }
+    }
 
     changeSelectedObject(evt: KeyboardEvent) {
-        switch (evt.key) {
-            case "1":
-                this.setState({ selectedObject: "LBlock", selectedObjectID: 0 })
-                break;
-            case "2":
-                this.setState({ selectedObject: "RBlock", selectedObjectID: 1 })
-                break;
-            case "3":
-                this.setState({ selectedObject: "Wall", selectedObjectID: 2 })
-                break;
-            case "4":
-                this.setState({ selectedObject: "Mine", selectedObjectID: 3 })
-                break;
-        }
+        let arrows = ["ArrowLeft","ArrowUp","ArrowRight","ArrowDown"];
+        if (arrows.includes(evt.key)) {
+            let tempArray = [...this.state.arrowKeys];
+            tempArray[arrows.indexOf(evt.key)] = true;
+            this.setState({arrowKeys: tempArray}, () => this.decideOrientation())
+        } 
+            switch (evt.key) {
+                case "1":
+                    this.setState({ selectedObject: "LBlock", selectedObjectID: 0 })
+                    break;
+                case "2":
+                    this.setState({ selectedObject: "RBlock", selectedObjectID: 1 })
+                    break;
+                case "3":
+                    this.setState({ selectedObject: "Wall", selectedObjectID: 2 })
+                    break;
+                case "4":
+                    this.setState({ selectedObject: "Mine", selectedObjectID: 3 })
+                    break;
+            }
         if ((evt.key === "s" || evt.key === "S") && this.props.canSave && this.props.beatmapid) {
             console.log("Saving")
             console.log(this.props.beatmapid, { _notes: { ...this.state._notes }, _obstacles: { ...this.state._obstacles } })
@@ -347,7 +429,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                 },
                 body: JSON.stringify({
                     "beatmapid": this.props.beatmapid,
-                    "beatmapinfo": JSON.stringify({ _notes: { ...this.state._notes }, _obstacles: { ...this.state._obstacles } })
+                    "beatmapinfo": JSON.stringify({ _notes: [...this.state._notes], _obstacles: [...this.state._obstacles] })
                 })
             })
                 .then(res => res.json())
