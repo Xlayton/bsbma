@@ -10,6 +10,7 @@ import { TryIt } from './TryIt';
 import { Maps } from './Maps';
 import { Login } from './Login';
 import { Register } from './Register';
+import { EditorCanvas } from './EditorCanvas';
 
 interface IProps {
 }
@@ -25,6 +26,16 @@ interface IState {
     password: string,
     username: string,
     uuid: string
+  }
+  selectedBeatmap: {
+    id: string,
+    beatmapfile: string,
+    songfile: string,
+    difficulty: string,
+    difficultylabel: string,
+    notejumpoffset: number,
+    notejumpspeed: number,
+    bpm: number
   }
 }
 
@@ -42,6 +53,16 @@ export default class App extends Component<IProps, IState> {
       username: "",
       uuid: ""
     },
+    selectedBeatmap: {
+      id: "",
+      beatmapfile: "",
+      songfile: "",
+      difficulty: "",
+      difficultylabel: "",
+      notejumpoffset: 0,
+      notejumpspeed: 0,
+      bpm: 0
+    }
   }
 
   setUserLogged = (isUserLogged: boolean, userData: {
@@ -56,6 +77,20 @@ export default class App extends Component<IProps, IState> {
     this.setState({ isUserLogged: isUserLogged, user: userData })
   }
 
+  setSelectedBeatmap = (id: string, beatmapfile: string, songfile: string, difficulty: string, difficultylabel: string, notejumpoffset: number, notejumpspeed: number, bpm: number, after?: () => void) => {
+    let beatmap = {
+      id,
+      beatmapfile,
+      songfile,
+      difficulty,
+      difficultylabel,
+      notejumpoffset,
+      notejumpspeed,
+      bpm
+    }
+    this.setState({selectedBeatmap: beatmap}, after)
+  }
+
   shouldLogout = () => {
     window.localStorage.clear()
     this.setState({ shouldLogout: true })
@@ -67,7 +102,6 @@ export default class App extends Component<IProps, IState> {
       let userDataParse = JSON.parse(userData)
       let userLogStatus = userDataParse.isUserLogged === true ? true : false
       let userInfo = userDataParse.userData
-      console.log(userDataParse)
       this.setState({ isUserLogged: userLogStatus, user: userInfo })
     }
   }
@@ -77,7 +111,7 @@ export default class App extends Component<IProps, IState> {
       <article className="app">
         <BrowserRouter>
           <section className="nav-area">
-            <Navbar isUserLogged={this.state.isUserLogged} shouldLogout={this.shouldLogout} />
+            <Navbar isUserLogged={this.state.isUserLogged} shouldLogout={this.shouldLogout} userImagePath={this.state.user.image} apiUrl={this.state.apiURL} />
           </section>
           <section className="content-area">
             <Route exact path="/" >
@@ -96,7 +130,10 @@ export default class App extends Component<IProps, IState> {
               <AccountHome isUserLogged={this.state.isUserLogged} />
             </Route>
             <Route exact path="/maps" >
-              <Maps apiURL={this.state.apiURL} isUserLogged={this.state.isUserLogged} userUUID={this.state.user.uuid} />
+              <Maps apiURL={this.state.apiURL} isUserLogged={this.state.isUserLogged} userUUID={this.state.user.uuid} setSelectedBeatmap={this.setSelectedBeatmap} />
+            </Route>
+            <Route exact path="/editmap">
+              <EditorCanvas apiURL={this.state.apiURL} beatmapid={this.state.selectedBeatmap.id} canSave={true} bpm={this.state.selectedBeatmap.bpm} songFileURL={`${this.state.apiURL}/static${this.state.selectedBeatmap.songfile}`} />
             </Route>
             <Route exact path="/login">
               <Login setUserLogged={this.setUserLogged} apiURL={this.state.apiURL} />

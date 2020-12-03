@@ -3,3 +3,5 @@
 /node_modules
 /server/api/audio/
 /server/api/image/
+/server/api/beatmaps/
+/server/api/temp/
