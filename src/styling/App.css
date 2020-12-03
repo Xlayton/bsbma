@@ -296,6 +296,34 @@
     position: absolute;
     top: 0;
     left: 0;
+    background-color: rgba(200, 200, 200, 0.4);
+    padding: 5px;
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+#showControlsBtn {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+#editorControls>h3 {
+    font-size: 1.1em;
+}
+
+#editorControls>div {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+}
+
+#editorControls>div:nth-child(2n + 1) {
+    border-bottom: 1px solid #efefef;
+    border-top: 1px solid #efefef;
 }
 
 #canvas-area {
