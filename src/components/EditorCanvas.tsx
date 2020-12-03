@@ -40,7 +40,8 @@ interface IState {
     }>
     showToast: boolean
     toastType: "success" | "danger" | ""
-    toastMsg: "Successfully Saved Beatmap" | "Beatmap Save Failed" | ""
+    toastMsg: "Successfully Saved Beatmap" | "Beatmap Save Failed" | "",
+    amountBeatToMove: number
 }
 export class EditorCanvas extends Component<IProps, IState> {
 
@@ -57,7 +58,8 @@ export class EditorCanvas extends Component<IProps, IState> {
         "_obstacles": [],
         showToast: false,
         toastType: "",
-        toastMsg: ""
+        toastMsg: "",
+        amountBeatToMove: 1
     }
 
     componentDidMount() {
@@ -94,14 +96,14 @@ export class EditorCanvas extends Component<IProps, IState> {
                     parseData._notes.forEach((note: any) => {
                         let filteredGridCell = this.state.placementGrid.children.filter(group => (group.children[0].userData.lineIndex === note._lineIndex) && (group.children[0].userData.lineLayer === note._lineLayer))[0];
                         let noteType = "";
-                        if(note._type === 0) {
-                            noteType ="LBlock"
+                        if (note._type === 0) {
+                            noteType = "LBlock"
                         }
-                        if(note._type === 1) {
-                            noteType ="RBlock"
+                        if (note._type === 1) {
+                            noteType = "RBlock"
                         }
-                        if(note._type === 3) {
-                            noteType ="Mine"
+                        if (note._type === 3) {
+                            noteType = "Mine"
                         }
                         loader.load(`./models/${noteType}.glb`,
                             gltf => {
@@ -357,6 +359,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                             root.rotateX(rotation)
                             const edges = new EdgesGeometry((root.children[0] as Mesh).geometry);
                             const line = new LineSegments(edges, new LineBasicMaterial({ color: 0xffffff }));
+                            line.userData = { "beat": this.state.beat, "lineIndex": gridCellData.lineIndex, "lineLayer": gridCellData.lineLayer, "baseVec": vector, isWall: false }
                             root.add(line);
                             if (this.state.selectedObject !== "Wall") {
                                 let notes = [...this.state._notes];
@@ -395,34 +398,31 @@ export class EditorCanvas extends Component<IProps, IState> {
         tempMouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(tempMouse, camera);
         var intersects = raycaster.intersectObjects(scene.children, true);
-        let gridCellIntersects = intersects.filter(intersect => intersect.object.userData.isPlaced)
-        if (gridCellIntersects.length > 0) {
-            let gridCellData = gridCellIntersects[0].object.userData
-            if (gridCellData.isPlaced) {
-                let noteToRemove = scene.children.filter(child => child.userData.lineIndex === gridCellData.lineIndex && child.userData.lineLayer === gridCellData.lineLayer && child.userData.beat === this.state.beat)[0]
-                scene.remove(noteToRemove)
-                if (!noteToRemove.userData.isWall) {
-                    let notes = [...this.state._notes];
-                    notes.forEach(note => {
-                        if (note._lineIndex === noteToRemove.userData.lineIndex && note._lineLayer === noteToRemove.userData.lineLayer && note._time === noteToRemove.userData.beat) {
-                            notes.splice(notes.indexOf(note), 1)
-                        }
-                    })
-
-                    this.setState({ _notes: notes })
-                } else {
-                    let obstacles = [...this.state._obstacles];
-                    obstacles.forEach(note => {
-                        if (note._lineIndex === noteToRemove.userData.lineIndex && note._lineLayer === noteToRemove.userData.lineLayer && note._time === noteToRemove.userData.beat) {
-                            obstacles.splice(obstacles.indexOf(note), 1)
-                        }
-                    })
-                    this.setState({ _obstacles: obstacles })
-                }
-                gridCellData.isPlaced = false;
+        let potentialNotes = intersects.filter(intersect => intersect.object.parent)
+        let noteGroups = potentialNotes.map(intersect => intersect.object.parent).filter(group => group ? group.userData.beat !== undefined : false)
+        if (noteGroups.length > 0 && noteGroups[0]) {
+            let noteToRemove = noteGroups[0]
+            scene.remove(noteToRemove)
+            if (!noteToRemove.userData.isWall) {
+                let notes = [...this.state._notes];
+                notes.forEach(note => {
+                    if (note._lineIndex === noteToRemove.userData.lineIndex && note._lineLayer === noteToRemove.userData.lineLayer && note._time === noteToRemove.userData.beat) {
+                        notes.splice(notes.indexOf(note), 1)
+                    }
+                })
+                this.setState({ _notes: notes })
+            } else {
+                let obstacles = [...this.state._obstacles];
+                obstacles.forEach(note => {
+                    if (note._lineIndex === noteToRemove.userData.lineIndex && note._lineLayer === noteToRemove.userData.lineLayer && note._time === noteToRemove.userData.beat) {
+                        obstacles.splice(obstacles.indexOf(note), 1)
+                    }
+                })
+                this.setState({ _obstacles: obstacles })
             }
         }
     }
+
     animate(camera: PerspectiveCamera, renderer: WebGLRenderer, scene: Scene, canvasArea: HTMLElement, raycaster: Raycaster) {
         camera.aspect = canvasArea.offsetWidth / canvasArea.offsetHeight;
         camera.updateProjectionMatrix();
@@ -438,13 +438,13 @@ export class EditorCanvas extends Component<IProps, IState> {
     }
     moveBeat(evt: React.WheelEvent<HTMLDivElement>) {
         if (evt.deltaY < 0) {
-            this.setState({ beat: this.state.beat + 1 })
+            this.setState({ beat: this.state.beat + this.state.amountBeatToMove })
             let grid = this.state.placementGrid;
             grid.children.forEach(child => child.children[0].userData = { ...child.children[0].userData, isPlaced: false });
             (document.getElementById("editor-audio") as HTMLAudioElement).currentTime = parseFloat(`${(this.state.beat / this.props.bpm) * 60}`)
         } else {
             if (this.state.beat > 0) {
-                this.setState({ beat: this.state.beat - 1 })
+                this.setState({ beat: this.state.beat - this.state.amountBeatToMove })
                 let grid = this.state.placementGrid;
                 grid.children.forEach(child => child.children[0].userData = { ...child.children[0].userData, isPlaced: false });
             } else {
@@ -547,7 +547,11 @@ export class EditorCanvas extends Component<IProps, IState> {
         return (
             <>
                 <Toast isVisible={this.state.showToast} toastText={this.state.toastMsg} hide={() => this.setState({ showToast: false })} type={this.state.toastType} />
-                <div id="canvas-area" onWheel={(evt) => this.moveBeat(evt)}></div>
+                <div id="canvas-area" onWheel={(evt) => this.moveBeat(evt)}>
+                    <div id="editorControls">
+                        <input type="number" step="0.1" id="beatAmt" className="text-input" value={this.state.amountBeatToMove} onChange={(evt) => this.setState({ amountBeatToMove: parseFloat(evt.target.value) })} />
+                    </div>
+                </div>
                 <audio id="editor-audio" src={this.props.songFileURL} controls />
             </>
         )
