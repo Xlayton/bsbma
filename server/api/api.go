@@ -108,6 +108,13 @@ type BeatmapResponse struct {
 	Beatmap Beatmap `json:"beatmap"`
 }
 
+//BeatmapDataResponse represents JSON response back to client for data
+type BeatmapDataResponse struct {
+	Code    int16  `json:"code"`
+	Message string `json:"message"`
+	Beatmap string `json:"beatmapdata"`
+}
+
 func deleteMap(w http.ResponseWriter, r *http.Request) {
 	setHeaders(w)
 	if r.Method == "POST" {
@@ -462,6 +469,32 @@ func getBeatmap(w http.ResponseWriter, r *http.Request) {
 		coll := client.Database("bsbma").Collection("beatmaps")
 		coll.FindOne(context.TODO(), bson.M{"id": beatmapid}).Decode(&beatmap)
 		json.NewEncoder(w).Encode(BeatmapResponse{200, "Ok", beatmap})
+	} else {
+		w.Write([]byte("404 Not Found"))
+	}
+}
+
+func getBeatmapData(w http.ResponseWriter, r *http.Request) {
+	setHeaders(w)
+	if r.Method == "GET" {
+		//Parse data from params
+		r.ParseForm()
+		//Get and check for required fields
+		beatmapid := r.Form.Get("beatmapid")
+		if isStringEmpty(beatmapid) {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide valid Beatmap Set Id"})
+			return
+		}
+		client, ctx := getDbConnection()
+		defer client.Disconnect(ctx)
+		var beatmap Beatmap
+		coll := client.Database("bsbma").Collection("beatmaps")
+		coll.FindOne(context.TODO(), bson.M{"id": beatmapid}).Decode(&beatmap)
+		data, err := ioutil.ReadFile(fmt.Sprintf("./beatmaps/%s.dat", beatmap.ID))
+		if err != nil {
+			json.NewEncoder(w).Encode(GeneralResponse{400, "No such file"})
+		}
+		json.NewEncoder(w).Encode(BeatmapDataResponse{200, "Ok", string(data)})
 	} else {
 		w.Write([]byte("404 Not Found"))
 	}
@@ -960,6 +993,7 @@ func handleRequests() {
 	http.HandleFunc("/deletemap", deleteMap)
 	http.HandleFunc("/getbeatmapset", getBeatmapSet)
 	http.HandleFunc("/getbeatmap", getBeatmap)
+	http.HandleFunc("/getbeatmapdata", getBeatmapData)
 	http.HandleFunc("/savebeatmap", saveBeatmap)
 	http.HandleFunc("/bundlemap", bundleMap)
 	log.Fatal(http.ListenAndServe(":10000", nil))

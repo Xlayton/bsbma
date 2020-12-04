@@ -61,6 +61,102 @@ export class EditorCanvas extends Component<IProps, IState> {
     }
 
     componentDidMount() {
+        const loader = new GLTFLoader();
+        if (this.props.beatmapid) {
+            fetch(`${this.props.apiURL}/getbeatmapdata?beatmapid=${this.props.beatmapid}`)
+                .then(res => res.json())
+                .then(data => {
+                    console.log(data)
+                    console.log(this.state.placementGrid)
+                    let parseData = JSON.parse(data.beatmapdata);
+                    parseData._obstacles.forEach((wall: any) => {
+                        let filteredGridCell = this.state.placementGrid.children.filter(group => (group.children[0].userData.lineIndex === wall._lineIndex) && (group.children[0].userData.lineLayer === wall._lineLayer))[0];
+                        loader.load(`./models/Wall.glb`,
+                            gltf => {
+                                const root = gltf.scene;
+                                root.renderOrder = 1
+                                root.scale.set(.75, .75, .75);
+                                (root.children[0] as Mesh).geometry.rotateZ(180 * Math.PI / 180);
+                                (root.children[0] as Mesh).geometry.rotateX(180 * Math.PI / 180);
+                                root.setRotationFromEuler(this.state.placementGrid.rotation)
+                                root.applyQuaternion(this.state.placementGrid.quaternion)
+                                let vector = new Vector3()
+                                filteredGridCell.getWorldPosition(vector)
+                                root.position.set(vector.x, vector.y, vector.z)
+                                root.userData = { "beat": wall._time, "lineIndex": filteredGridCell.userData.lineIndex, "lineLayer": filteredGridCell.userData.lineLayer, "baseVec": vector, isWall: false }
+                                root.quaternion.set(this.state.placementGrid.quaternion.x, this.state.placementGrid.quaternion.y, this.state.placementGrid.quaternion.z, this.state.placementGrid.quaternion.w)
+                                const edges = new EdgesGeometry((root.children[0] as Mesh).geometry);
+                                const line = new LineSegments(edges, new LineBasicMaterial({ color: 0xffffff }));
+                                root.add(line);
+                                scene.add(root)
+                            });
+                    })
+                    parseData._notes.forEach((note: any) => {
+                        let filteredGridCell = this.state.placementGrid.children.filter(group => (group.children[0].userData.lineIndex === note._lineIndex) && (group.children[0].userData.lineLayer === note._lineLayer))[0];
+                        let noteType = "";
+                        if(note._type === 0) {
+                            noteType ="LBlock"
+                        }
+                        if(note._type === 1) {
+                            noteType ="RBlock"
+                        }
+                        if(note._type === 3) {
+                            noteType ="Mine"
+                        }
+                        loader.load(`./models/${noteType}.glb`,
+                            gltf => {
+                                const root = gltf.scene;
+                                root.renderOrder = 1
+                                root.scale.set(.75, .75, .75);
+                                (root.children[0] as Mesh).geometry.rotateZ(180 * Math.PI / 180);
+                                (root.children[0] as Mesh).geometry.rotateX(180 * Math.PI / 180);
+                                root.setRotationFromEuler(this.state.placementGrid.rotation)
+                                root.applyQuaternion(this.state.placementGrid.quaternion)
+                                let vector = new Vector3()
+                                filteredGridCell.getWorldPosition(vector)
+                                root.position.set(vector.x, vector.y, vector.z)
+                                let rotation = 0;
+                                switch (note._cutDirection) {
+                                    case 0:
+                                        rotation = 180 * (Math.PI / 180)
+                                        break;
+                                    case 1:
+                                        rotation = 0;
+                                        break;
+                                    case 2:
+                                        rotation = -90 * (Math.PI / 180)
+                                        break;
+                                    case 3:
+                                        rotation = 90 * (Math.PI / 180)
+                                        break;
+                                    case 4:
+                                        rotation = -135 * (Math.PI / 180)
+                                        break;
+                                    case 5:
+                                        rotation = 135 * (Math.PI / 180)
+                                        break;
+                                    case 6:
+                                        rotation = -45 * (Math.PI / 180)
+                                        break;
+                                    case 7:
+                                        rotation = 45 * (Math.PI / 180)
+                                        break;
+                                }
+                                root.userData = { "beat": note._time, "lineIndex": filteredGridCell.userData.lineIndex, "lineLayer": filteredGridCell.userData.lineLayer, "baseVec": vector, isWall: false }
+                                root.quaternion.set(this.state.placementGrid.quaternion.x, this.state.placementGrid.quaternion.y, this.state.placementGrid.quaternion.z, this.state.placementGrid.quaternion.w)
+                                root.rotateX(rotation)
+                                const edges = new EdgesGeometry((root.children[0] as Mesh).geometry);
+                                const line = new LineSegments(edges, new LineBasicMaterial({ color: 0xffffff }));
+                                root.add(line);
+                                scene.add(root)
+                            });
+                        console.log(note, filteredGridCell)
+                    })
+                    this.setState({ _notes: parseData._notes, _obstacles: parseData._obstacles })
+                })
+        }
+
+
         const scene = new Scene();
         this.setState({ scene: scene })
         var renderer = new WebGLRenderer();
@@ -81,7 +177,6 @@ export class EditorCanvas extends Component<IProps, IState> {
             controls.dampingFactor = 0.25
             controls.enableZoom = false
 
-            const loader = new GLTFLoader();
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
@@ -231,30 +326,30 @@ export class EditorCanvas extends Component<IProps, IState> {
                             root.position.set(vector.x, vector.y, vector.z)
                             let rotation = 0;
                             console.log(this.state.cutDirection)
-                            switch(this.state.cutDirection) {
+                            switch (this.state.cutDirection) {
                                 case 0:
-                                    rotation = 180 * (Math.PI/180)
+                                    rotation = 180 * (Math.PI / 180)
                                     break;
                                 case 1:
                                     rotation = 0;
                                     break;
                                 case 2:
-                                    rotation = -90 * (Math.PI/180)
+                                    rotation = -90 * (Math.PI / 180)
                                     break;
                                 case 3:
-                                    rotation = 90 * (Math.PI/180)
+                                    rotation = 90 * (Math.PI / 180)
                                     break;
                                 case 4:
-                                    rotation = -135 * (Math.PI/180)
+                                    rotation = -135 * (Math.PI / 180)
                                     break;
                                 case 5:
-                                    rotation = 135 * (Math.PI/180)
+                                    rotation = 135 * (Math.PI / 180)
                                     break;
                                 case 6:
-                                    rotation = -45 * (Math.PI/180)
+                                    rotation = -45 * (Math.PI / 180)
                                     break;
                                 case 7:
-                                    rotation = 45 * (Math.PI/180)
+                                    rotation = 45 * (Math.PI / 180)
                                     break;
                             }
                             root.userData = { "beat": this.state.beat, "lineIndex": gridCellData.lineIndex, "lineLayer": gridCellData.lineLayer, "baseVec": vector, isWall: false }
@@ -361,12 +456,12 @@ export class EditorCanvas extends Component<IProps, IState> {
     checkArrows(evt: KeyboardEvent) {
         // TODO implement arrow check
 
-        let arrows = ["ArrowLeft","ArrowUp","ArrowRight","ArrowDown"];
+        let arrows = ["ArrowLeft", "ArrowUp", "ArrowRight", "ArrowDown"];
         if (arrows.includes(evt.key)) {
             let tempArray = [...this.state.arrowKeys];
             tempArray[arrows.indexOf(evt.key)] = false;
-            this.setState({arrowKeys: tempArray})
-        } 
+            this.setState({ arrowKeys: tempArray })
+        }
     }
 
     decideOrientation() {
@@ -399,26 +494,26 @@ export class EditorCanvas extends Component<IProps, IState> {
     }
 
     changeSelectedObject(evt: KeyboardEvent) {
-        let arrows = ["ArrowLeft","ArrowUp","ArrowRight","ArrowDown"];
+        let arrows = ["ArrowLeft", "ArrowUp", "ArrowRight", "ArrowDown"];
         if (arrows.includes(evt.key)) {
             let tempArray = [...this.state.arrowKeys];
             tempArray[arrows.indexOf(evt.key)] = true;
-            this.setState({arrowKeys: tempArray}, () => this.decideOrientation())
-        } 
-            switch (evt.key) {
-                case "1":
-                    this.setState({ selectedObject: "LBlock", selectedObjectID: 0 })
-                    break;
-                case "2":
-                    this.setState({ selectedObject: "RBlock", selectedObjectID: 1 })
-                    break;
-                case "3":
-                    this.setState({ selectedObject: "Wall", selectedObjectID: 2 })
-                    break;
-                case "4":
-                    this.setState({ selectedObject: "Mine", selectedObjectID: 3 })
-                    break;
-            }
+            this.setState({ arrowKeys: tempArray }, () => this.decideOrientation())
+        }
+        switch (evt.key) {
+            case "1":
+                this.setState({ selectedObject: "LBlock", selectedObjectID: 0 })
+                break;
+            case "2":
+                this.setState({ selectedObject: "RBlock", selectedObjectID: 1 })
+                break;
+            case "3":
+                this.setState({ selectedObject: "Wall", selectedObjectID: 2 })
+                break;
+            case "4":
+                this.setState({ selectedObject: "Mine", selectedObjectID: 3 })
+                break;
+        }
         if ((evt.key === "s" || evt.key === "S") && this.props.canSave && this.props.beatmapid) {
             console.log("Saving")
             console.log(this.props.beatmapid, { _notes: { ...this.state._notes }, _obstacles: { ...this.state._obstacles } })
