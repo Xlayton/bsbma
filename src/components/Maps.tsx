@@ -466,27 +466,27 @@ export class Maps extends Component<IProps, IState> {
                         </div>
                         <div>
                             <label>BPM:</label>
-                            <input type="number" className="text-input" placeholder="BPM" onChange={this.onBpmChange} value={this.state.bpm ? this.state.bpm : undefined} />
+                            <input type="number" step="0.1" className="text-input" placeholder="BPM" onChange={this.onBpmChange} value={this.state.bpm ? this.state.bpm : undefined} />
                         </div>
                         <div>
                             <label>Shuffle:</label>
-                            <input type="number" className="text-input" placeholder="Shuffle" onChange={this.onShuffleChange} value={this.state.shuffle ? this.state.shuffle : undefined} />
+                            <input type="number" step="0.1" className="text-input" placeholder="Shuffle" onChange={this.onShuffleChange} value={this.state.shuffle ? this.state.shuffle : undefined} />
                         </div>
                         <div>
                             <label>Shuffle Period:</label>
-                            <input type="number" className="text-input" placeholder="Shuffle Period" onChange={this.onShufflePeriodChange} value={this.state.shufflePeriod ? this.state.shufflePeriod : undefined} />
+                            <input type="number" step="0.1" className="text-input" placeholder="Shuffle Period" onChange={this.onShufflePeriodChange} value={this.state.shufflePeriod ? this.state.shufflePeriod : undefined} />
                         </div>
                         <div>
                             <label>Preview Start:</label>
-                            <input type="number" className="text-input" placeholder="Preview Start" onChange={this.onPreviewStartChange} value={this.state.previewStart ? this.state.previewStart : undefined} />
+                            <input type="number" step="0.1" className="text-input" placeholder="Preview Start" onChange={this.onPreviewStartChange} value={this.state.previewStart ? this.state.previewStart : undefined} />
                         </div>
                         <div>
                             <label>Preview Duration:</label>
-                            <input type="number" className="text-input" placeholder="Preview Duration" onChange={this.onPreviewDurationChange} value={this.state.previewDuration ? this.state.previewDuration : undefined} />
+                            <input type="number" step="0.1" className="text-input" placeholder="Preview Duration" onChange={this.onPreviewDurationChange} value={this.state.previewDuration ? this.state.previewDuration : undefined} />
                         </div>
                         <div>
                             <label>Song Time Offset:</label>
-                            <input type="number" className="text-input" placeholder="Song Time Offset" onChange={this.onSongTimeOffsetChange} value={this.state.songTimeOffset ? this.state.songTimeOffset : undefined} />
+                            <input type="number" step="0.1" className="text-input" placeholder="Song Time Offset" onChange={this.onSongTimeOffsetChange} value={this.state.songTimeOffset ? this.state.songTimeOffset : undefined} />
                         </div>
                         <div>
                             <button onClick={() => this.showCreate(false)}>Cancel</button>

@@ -306,7 +306,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                     if (this.state.allowMapToMove) {
                         if (!(evt.target as HTMLMediaElement).paused) {
                             let time = Math.round(10 * (evt.target as HTMLMediaElement).currentTime) / 10
-                            this.setState({ beat: (time / 60) * this.props.bpm })
+                            this.setState({ beat: Math.round(10 * (time / 60) * this.props.bpm) / 10 })
                         }
                     } else {
                         if (this.state.shouldUpdateTime) {
@@ -337,86 +337,86 @@ export class EditorCanvas extends Component<IProps, IState> {
             let gridCellData = intersects[0].object.userData
             let noteExists = false
             this.state._notes.forEach(note => {
-                if(note._time === this.state.beat && note._lineIndex === gridCellData.lineIndex && note._lineLayer === gridCellData.lineLayer) {
+                if (note._time === this.state.beat && note._lineIndex === gridCellData.lineIndex && note._lineLayer === gridCellData.lineLayer) {
                     noteExists = true;
                     console.log("Note already exists")
                 }
             })
-            if(!noteExists) {
+            if (!noteExists) {
                 console.log("No such note")
                 loader.load(`./models/${this.state.selectedObject}.glb`,
-                gltf => {
-                    const root = gltf.scene;
-                    root.renderOrder = 1
-                    root.scale.set(.75, .75, .75);
-                    (root.children[0] as Mesh).geometry.rotateZ(180 * Math.PI / 180);
-                    (root.children[0] as Mesh).geometry.rotateX(180 * Math.PI / 180);
-                    if (intersects[0].object.parent && intersects[0].object.parent.parent) {
-                        root.setRotationFromEuler(this.state.placementGrid.rotation)
-                        root.applyQuaternion(this.state.placementGrid.quaternion)
-                        let vector = new Vector3()
-                        intersects[0].object.parent.getWorldPosition(vector)
-                        root.position.set(vector.x, vector.y, vector.z)
-                        let rotation = 0;
-                        switch (this.state.cutDirection) {
-                            case 0:
-                                rotation = 180 * (Math.PI / 180)
-                                break;
-                            case 1:
-                                rotation = 0;
-                                break;
-                            case 2:
-                                rotation = -90 * (Math.PI / 180)
-                                break;
-                            case 3:
-                                rotation = 90 * (Math.PI / 180)
-                                break;
-                            case 4:
-                                rotation = 135 * (Math.PI / 180)
-                                break;
-                            case 5:
-                                rotation = -135 * (Math.PI / 180)
-                                break;
-                            case 6:
-                                rotation = 45 * (Math.PI / 180)
-                                break;
-                            case 7:
-                                rotation = -45 * (Math.PI / 180)
-                                break;
+                    gltf => {
+                        const root = gltf.scene;
+                        root.renderOrder = 1
+                        root.scale.set(.75, .75, .75);
+                        (root.children[0] as Mesh).geometry.rotateZ(180 * Math.PI / 180);
+                        (root.children[0] as Mesh).geometry.rotateX(180 * Math.PI / 180);
+                        if (intersects[0].object.parent && intersects[0].object.parent.parent) {
+                            root.setRotationFromEuler(this.state.placementGrid.rotation)
+                            root.applyQuaternion(this.state.placementGrid.quaternion)
+                            let vector = new Vector3()
+                            intersects[0].object.parent.getWorldPosition(vector)
+                            root.position.set(vector.x, vector.y, vector.z)
+                            let rotation = 0;
+                            switch (this.state.cutDirection) {
+                                case 0:
+                                    rotation = 180 * (Math.PI / 180)
+                                    break;
+                                case 1:
+                                    rotation = 0;
+                                    break;
+                                case 2:
+                                    rotation = -90 * (Math.PI / 180)
+                                    break;
+                                case 3:
+                                    rotation = 90 * (Math.PI / 180)
+                                    break;
+                                case 4:
+                                    rotation = 135 * (Math.PI / 180)
+                                    break;
+                                case 5:
+                                    rotation = -135 * (Math.PI / 180)
+                                    break;
+                                case 6:
+                                    rotation = 45 * (Math.PI / 180)
+                                    break;
+                                case 7:
+                                    rotation = -45 * (Math.PI / 180)
+                                    break;
+                            }
+                            root.userData = { "beat": this.state.beat, "lineIndex": gridCellData.lineIndex, "lineLayer": gridCellData.lineLayer, "baseVec": vector, isWall: false }
+                            root.quaternion.set(this.state.placementGrid.quaternion.x, this.state.placementGrid.quaternion.y, this.state.placementGrid.quaternion.z, this.state.placementGrid.quaternion.w)
+                            root.rotateX(rotation)
+                            const edges = new EdgesGeometry((root.children[0] as Mesh).geometry);
+                            const line = new LineSegments(edges, new LineBasicMaterial({ color: 0xffffff }));
+                            line.userData = { "beat": this.state.beat, "lineIndex": gridCellData.lineIndex, "lineLayer": gridCellData.lineLayer, "baseVec": vector, isWall: false }
+                            root.add(line);
+                            if (this.state.selectedObject !== "Wall") {
+                                let notes = [...this.state._notes];
+                                notes.push({
+                                    "_lineIndex": gridCellData.lineIndex,
+                                    "_lineLayer": gridCellData.lineLayer,
+                                    "_time": this.state.beat,
+                                    "_type": this.state.selectedObjectID,
+                                    "_cutDirection": this.state.cutDirection,
+                                })
+                                this.setState({ _notes: notes })
+                            } else {
+                                let obstacles = [...this.state._obstacles]
+                                obstacles.push({
+                                    "_lineIndex": gridCellData.lineIndex,
+                                    "_lineLayer": gridCellData.lineLayer,
+                                    "_time": this.state.beat,
+                                    "_type": 1,
+                                    "_duration": 1,
+                                    "_width": 1
+                                });
+                                root.userData.isWall = true;
+                                this.setState({ _obstacles: obstacles })
+                            }
                         }
-                        root.userData = { "beat": this.state.beat, "lineIndex": gridCellData.lineIndex, "lineLayer": gridCellData.lineLayer, "baseVec": vector, isWall: false }
-                        root.quaternion.set(this.state.placementGrid.quaternion.x, this.state.placementGrid.quaternion.y, this.state.placementGrid.quaternion.z, this.state.placementGrid.quaternion.w)
-                        root.rotateX(rotation)
-                        const edges = new EdgesGeometry((root.children[0] as Mesh).geometry);
-                        const line = new LineSegments(edges, new LineBasicMaterial({ color: 0xffffff }));
-                        line.userData = { "beat": this.state.beat, "lineIndex": gridCellData.lineIndex, "lineLayer": gridCellData.lineLayer, "baseVec": vector, isWall: false }
-                        root.add(line);
-                        if (this.state.selectedObject !== "Wall") {
-                            let notes = [...this.state._notes];
-                            notes.push({
-                                "_lineIndex": gridCellData.lineIndex,
-                                "_lineLayer": gridCellData.lineLayer,
-                                "_time": this.state.beat,
-                                "_type": this.state.selectedObjectID,
-                                "_cutDirection": this.state.cutDirection,
-                            })
-                            this.setState({ _notes: notes })
-                        } else {
-                            let obstacles = [...this.state._obstacles]
-                            obstacles.push({
-                                "_lineIndex": gridCellData.lineIndex,
-                                "_lineLayer": gridCellData.lineLayer,
-                                "_time": this.state.beat,
-                                "_type": 1,
-                                "_duration": 1,
-                                "_width": 1
-                            });
-                            root.userData.isWall = true;
-                            this.setState({ _obstacles: obstacles })
-                        }
-                    }
-                    scene.add(root)
-                });
+                        scene.add(root)
+                    });
             }
         }
     }
