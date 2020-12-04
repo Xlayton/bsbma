@@ -270,6 +270,7 @@
     width: 100%;
     height: 100%;
     border: 1px solid #000;
+    background-color: #8f8f8f;
 }
 
 #createMapModal {
@@ -318,7 +319,12 @@
 #editorControls>div {
     display: flex;
     justify-content: space-between;
-    width: 100%;
+    width: 75%;
+}
+
+#editorControls>div>img {
+    width: 25%;
+    padding: 15px 0;
 }
 
 #editorControls>div:nth-child(2n + 1) {
