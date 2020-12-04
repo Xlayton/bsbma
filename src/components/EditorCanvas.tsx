@@ -4,6 +4,10 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { Toast } from './notification/Toast'
 import "../styling/notification/Toast.css"
+import LBlockIcon from '../images/LBlock_Icon.png'
+import RBlockIcon from '../images/RBlock_Icon.png'
+import WallIcon from '../images/Wall_Icon.png'
+import MineIcon from '../images/Mine_Icon.png'
 
 interface IProps {
     bpm: number
@@ -559,6 +563,59 @@ export class EditorCanvas extends Component<IProps, IState> {
         }
     }
 
+    getSelectedImageIcon = () => {
+        let icon = ""
+        switch (this.state.selectedObject) {
+            case "LBlock":
+                icon = LBlockIcon;
+                break;
+            case "RBlock":
+                icon = RBlockIcon;
+                break;
+            case "Wall":
+                icon = WallIcon;
+                break;
+            case "Mine":
+                icon = MineIcon;
+                break;
+        }
+        return icon;
+    }
+
+    getIconRotateAngle = (cutDirection: number) => {
+        let rotation;
+        switch (cutDirection) {
+            case 0:
+                rotation = 180
+                break;
+            case 1:
+                rotation = 0;
+                break;
+            case 2:
+                rotation = 90
+                break;
+            case 3:
+                rotation = -90
+                break;
+            case 4:
+                rotation = 135
+                break;
+            case 5:
+                rotation = -135
+                break;
+            case 6:
+                rotation = 45
+                break;
+            case 7:
+                rotation = -45
+                break;
+        }
+        let rotationStyle: CSSProperties = {
+            "transform": `rotate(${rotation}deg)`
+        }
+        return rotationStyle;
+    }
+
     render() {
         let hideStyle: CSSProperties = {
             visibility: "hidden"
@@ -574,6 +631,10 @@ export class EditorCanvas extends Component<IProps, IState> {
                     <div id="editorControls" style={this.state.shouldShowControls ? showStyle : hideStyle}>
                         <h3>Editor Controls:</h3>
                         <div>
+                            <label>Current Beat</label>
+                            <input type="number" step="0.1" id="beatAmt" className="text-input" value={this.state.beat} onChange={(evt) => this.setState({ beat: parseFloat(evt.target.value) })} />
+                        </div>
+                        <div>
                             <label>Beat Increment:</label>
                             <input type="number" step="0.1" id="beatAmt" className="text-input" value={this.state.amountBeatToMove} onChange={(evt) => this.setState({ amountBeatToMove: parseFloat(evt.target.value) })} />
                             <label>Beat(s)</label>
@@ -582,7 +643,11 @@ export class EditorCanvas extends Component<IProps, IState> {
                             <label>Move beatmap with song?</label>
                             <input type="checkbox" checked={this.state.allowMapToMove} onChange={evt => this.setState({ allowMapToMove: evt.target.checked })} />
                         </div>
-                        <button onClick={() => this.setState({ shouldShowControls: false })}>Hide Controls</button>
+                        <div>
+                            <label>Selected Block:</label>
+                            <img src={this.getSelectedImageIcon()} style={this.getIconRotateAngle(this.state.cutDirection)} alt="" />
+                        </div>
+                        <button onClick={() => this.setState({ shouldShowControls: false })} >Hide Controls</button>
                     </div>
                 </div>
                 <audio id="editor-audio" src={this.props.songFileURL} controls />
