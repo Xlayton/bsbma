@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import React, { Component, CSSProperties } from 'react'
 import { Scene, WebGLRenderer, PerspectiveCamera, AmbientLight, Raycaster, Vector2, Camera, Group, Vector3, Mesh, EdgesGeometry, LineSegments, LineBasicMaterial } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
@@ -40,7 +40,12 @@ interface IState {
     }>
     showToast: boolean
     toastType: "success" | "danger" | ""
-    toastMsg: "Successfully Saved Beatmap" | "Beatmap Save Failed" | ""
+    toastMsg: "Successfully Saved Beatmap" | "Beatmap Save Failed" | "",
+    amountBeatToMove: number
+    allowMapToMove: boolean
+    timeToRestore: number
+    shouldUpdateTime: boolean
+    shouldShowControls: boolean
 }
 export class EditorCanvas extends Component<IProps, IState> {
 
@@ -57,7 +62,12 @@ export class EditorCanvas extends Component<IProps, IState> {
         "_obstacles": [],
         showToast: false,
         toastType: "",
-        toastMsg: ""
+        toastMsg: "",
+        amountBeatToMove: 1,
+        allowMapToMove: true,
+        timeToRestore: 0,
+        shouldUpdateTime: true,
+        shouldShowControls: true
     }
 
     componentDidMount() {
@@ -66,8 +76,6 @@ export class EditorCanvas extends Component<IProps, IState> {
             fetch(`${this.props.apiURL}/getbeatmapdata?beatmapid=${this.props.beatmapid}`)
                 .then(res => res.json())
                 .then(data => {
-                    console.log(data)
-                    console.log(this.state.placementGrid)
                     let parseData = JSON.parse(data.beatmapdata);
                     parseData._obstacles.forEach((wall: any) => {
                         let filteredGridCell = this.state.placementGrid.children.filter(group => (group.children[0].userData.lineIndex === wall._lineIndex) && (group.children[0].userData.lineLayer === wall._lineLayer))[0];
@@ -83,7 +91,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                                 let vector = new Vector3()
                                 filteredGridCell.getWorldPosition(vector)
                                 root.position.set(vector.x, vector.y, vector.z)
-                                root.userData = { "beat": wall._time, "lineIndex": filteredGridCell.userData.lineIndex, "lineLayer": filteredGridCell.userData.lineLayer, "baseVec": vector, isWall: false }
+                                root.userData = { "beat": wall._time, "lineIndex": filteredGridCell.children[0].userData.lineIndex, "lineLayer": filteredGridCell.children[0].userData.lineLayer, "baseVec": vector, isWall: false }
                                 root.quaternion.set(this.state.placementGrid.quaternion.x, this.state.placementGrid.quaternion.y, this.state.placementGrid.quaternion.z, this.state.placementGrid.quaternion.w)
                                 const edges = new EdgesGeometry((root.children[0] as Mesh).geometry);
                                 const line = new LineSegments(edges, new LineBasicMaterial({ color: 0xffffff }));
@@ -94,14 +102,14 @@ export class EditorCanvas extends Component<IProps, IState> {
                     parseData._notes.forEach((note: any) => {
                         let filteredGridCell = this.state.placementGrid.children.filter(group => (group.children[0].userData.lineIndex === note._lineIndex) && (group.children[0].userData.lineLayer === note._lineLayer))[0];
                         let noteType = "";
-                        if(note._type === 0) {
-                            noteType ="LBlock"
+                        if (note._type === 0) {
+                            noteType = "LBlock"
                         }
-                        if(note._type === 1) {
-                            noteType ="RBlock"
+                        if (note._type === 1) {
+                            noteType = "RBlock"
                         }
-                        if(note._type === 3) {
-                            noteType ="Mine"
+                        if (note._type === 3) {
+                            noteType = "Mine"
                         }
                         loader.load(`./models/${noteType}.glb`,
                             gltf => {
@@ -130,19 +138,19 @@ export class EditorCanvas extends Component<IProps, IState> {
                                         rotation = 90 * (Math.PI / 180)
                                         break;
                                     case 4:
-                                        rotation = -135 * (Math.PI / 180)
-                                        break;
-                                    case 5:
                                         rotation = 135 * (Math.PI / 180)
                                         break;
-                                    case 6:
-                                        rotation = -45 * (Math.PI / 180)
+                                    case 5:
+                                        rotation = -135 * (Math.PI / 180)
                                         break;
-                                    case 7:
+                                    case 6:
                                         rotation = 45 * (Math.PI / 180)
                                         break;
+                                    case 7:
+                                        rotation = -45 * (Math.PI / 180)
+                                        break;
                                 }
-                                root.userData = { "beat": note._time, "lineIndex": filteredGridCell.userData.lineIndex, "lineLayer": filteredGridCell.userData.lineLayer, "baseVec": vector, isWall: false }
+                                root.userData = { "beat": note._time, "lineIndex": filteredGridCell.children[0].userData.lineIndex, "lineLayer": filteredGridCell.children[0].userData.lineLayer, "baseVec": vector, isWall: false }
                                 root.quaternion.set(this.state.placementGrid.quaternion.x, this.state.placementGrid.quaternion.y, this.state.placementGrid.quaternion.z, this.state.placementGrid.quaternion.w)
                                 root.rotateX(rotation)
                                 const edges = new EdgesGeometry((root.children[0] as Mesh).geometry);
@@ -150,7 +158,6 @@ export class EditorCanvas extends Component<IProps, IState> {
                                 root.add(line);
                                 scene.add(root)
                             });
-                        console.log(note, filteredGridCell)
                     })
                     this.setState({ _notes: parseData._notes, _obstacles: parseData._obstacles })
                 })
@@ -175,7 +182,8 @@ export class EditorCanvas extends Component<IProps, IState> {
             controls.enableKeys = false
             controls.enableDamping = true
             controls.dampingFactor = 0.25
-            controls.enableZoom = false
+            controls.enableZoom = false;
+            controls.enablePan = false;
 
             loader.load("./models/GridPane.glb",
                 gltf => {
@@ -291,14 +299,28 @@ export class EditorCanvas extends Component<IProps, IState> {
             let aud = document.getElementById("editor-audio")
             if (aud) {
                 aud.addEventListener("timeupdate", evt => {
-                    if (!(evt.target as HTMLMediaElement).paused) {
-                        let time = Math.round(100 * (evt.target as HTMLMediaElement).currentTime) / 100
-                        this.setState({ beat: (time / 60) * this.props.bpm })
+                    if (this.state.allowMapToMove) {
+                        if (!(evt.target as HTMLMediaElement).paused) {
+                            let time = Math.round(10 * (evt.target as HTMLMediaElement).currentTime) / 10
+                            this.setState({ beat: (time / 60) * this.props.bpm })
+                        }
+                    } else {
+                        if (this.state.shouldUpdateTime) {
+                            this.setState({ shouldUpdateTime: false, timeToRestore: (evt.target as HTMLMediaElement).currentTime })
+                            if (evt.target) {
+                                evt.target.addEventListener("pause", this.onPause)
+                            }
+                        }
                     }
                 })
             }
             this.animate(camera, renderer, scene, canvasArea, raycaster);
         }
+    }
+    onPause = (evt: any) => {
+        this.setState({ shouldUpdateTime: true });
+        (evt.target as HTMLMediaElement).currentTime = this.state.timeToRestore
+        evt.target.removeEventListener("pause", this.onPause)
     }
     placeBlock = (event: MouseEvent, canvas: HTMLCanvasElement, camera: Camera, raycaster: Raycaster, scene: Scene, loader: GLTFLoader) => {
         let tempMouse = new Vector2()
@@ -325,7 +347,6 @@ export class EditorCanvas extends Component<IProps, IState> {
                             intersects[0].object.parent.getWorldPosition(vector)
                             root.position.set(vector.x, vector.y, vector.z)
                             let rotation = 0;
-                            console.log(this.state.cutDirection)
                             switch (this.state.cutDirection) {
                                 case 0:
                                     rotation = 180 * (Math.PI / 180)
@@ -340,16 +361,16 @@ export class EditorCanvas extends Component<IProps, IState> {
                                     rotation = 90 * (Math.PI / 180)
                                     break;
                                 case 4:
-                                    rotation = -135 * (Math.PI / 180)
-                                    break;
-                                case 5:
                                     rotation = 135 * (Math.PI / 180)
                                     break;
+                                case 5:
+                                    rotation = -135 * (Math.PI / 180)
+                                    break;
                                 case 6:
-                                    rotation = -45 * (Math.PI / 180)
+                                    rotation = 45 * (Math.PI / 180)
                                     break;
                                 case 7:
-                                    rotation = 45 * (Math.PI / 180)
+                                    rotation = -45 * (Math.PI / 180)
                                     break;
                             }
                             root.userData = { "beat": this.state.beat, "lineIndex": gridCellData.lineIndex, "lineLayer": gridCellData.lineLayer, "baseVec": vector, isWall: false }
@@ -357,6 +378,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                             root.rotateX(rotation)
                             const edges = new EdgesGeometry((root.children[0] as Mesh).geometry);
                             const line = new LineSegments(edges, new LineBasicMaterial({ color: 0xffffff }));
+                            line.userData = { "beat": this.state.beat, "lineIndex": gridCellData.lineIndex, "lineLayer": gridCellData.lineLayer, "baseVec": vector, isWall: false }
                             root.add(line);
                             if (this.state.selectedObject !== "Wall") {
                                 let notes = [...this.state._notes];
@@ -395,34 +417,31 @@ export class EditorCanvas extends Component<IProps, IState> {
         tempMouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(tempMouse, camera);
         var intersects = raycaster.intersectObjects(scene.children, true);
-        let gridCellIntersects = intersects.filter(intersect => intersect.object.userData.isPlaced)
-        if (gridCellIntersects.length > 0) {
-            let gridCellData = gridCellIntersects[0].object.userData
-            if (gridCellData.isPlaced) {
-                let noteToRemove = scene.children.filter(child => child.userData.lineIndex === gridCellData.lineIndex && child.userData.lineLayer === gridCellData.lineLayer && child.userData.beat === this.state.beat)[0]
-                scene.remove(noteToRemove)
-                if (!noteToRemove.userData.isWall) {
-                    let notes = [...this.state._notes];
-                    notes.forEach(note => {
-                        if (note._lineIndex === noteToRemove.userData.lineIndex && note._lineLayer === noteToRemove.userData.lineLayer && note._time === noteToRemove.userData.beat) {
-                            notes.splice(notes.indexOf(note), 1)
-                        }
-                    })
-
-                    this.setState({ _notes: notes })
-                } else {
-                    let obstacles = [...this.state._obstacles];
-                    obstacles.forEach(note => {
-                        if (note._lineIndex === noteToRemove.userData.lineIndex && note._lineLayer === noteToRemove.userData.lineLayer && note._time === noteToRemove.userData.beat) {
-                            obstacles.splice(obstacles.indexOf(note), 1)
-                        }
-                    })
-                    this.setState({ _obstacles: obstacles })
-                }
-                gridCellData.isPlaced = false;
+        let potentialNotes = intersects.filter(intersect => intersect.object.parent)
+        let noteGroups = potentialNotes.map(intersect => intersect.object.parent).filter(group => group ? group.userData.beat !== undefined : false)
+        if (noteGroups.length > 0 && noteGroups[0]) {
+            let noteToRemove = noteGroups[0]
+            scene.remove(noteToRemove)
+            if (!noteToRemove.userData.isWall) {
+                let notes = [...this.state._notes];
+                notes.forEach(note => {
+                    if (note._lineIndex === noteToRemove.userData.lineIndex && note._lineLayer === noteToRemove.userData.lineLayer && note._time === noteToRemove.userData.beat) {
+                        notes.splice(notes.indexOf(note), 1)
+                    }
+                })
+                this.setState({ _notes: notes })
+            } else {
+                let obstacles = [...this.state._obstacles];
+                obstacles.forEach(note => {
+                    if (note._lineIndex === noteToRemove.userData.lineIndex && note._lineLayer === noteToRemove.userData.lineLayer && note._time === noteToRemove.userData.beat) {
+                        obstacles.splice(obstacles.indexOf(note), 1)
+                    }
+                })
+                this.setState({ _obstacles: obstacles })
             }
         }
     }
+
     animate(camera: PerspectiveCamera, renderer: WebGLRenderer, scene: Scene, canvasArea: HTMLElement, raycaster: Raycaster) {
         camera.aspect = canvasArea.offsetWidth / canvasArea.offsetHeight;
         camera.updateProjectionMatrix();
@@ -438,13 +457,13 @@ export class EditorCanvas extends Component<IProps, IState> {
     }
     moveBeat(evt: React.WheelEvent<HTMLDivElement>) {
         if (evt.deltaY < 0) {
-            this.setState({ beat: this.state.beat + 1 })
+            this.setState({ beat: this.state.beat + this.state.amountBeatToMove })
             let grid = this.state.placementGrid;
             grid.children.forEach(child => child.children[0].userData = { ...child.children[0].userData, isPlaced: false });
             (document.getElementById("editor-audio") as HTMLAudioElement).currentTime = parseFloat(`${(this.state.beat / this.props.bpm) * 60}`)
         } else {
             if (this.state.beat > 0) {
-                this.setState({ beat: this.state.beat - 1 })
+                this.setState({ beat: this.state.beat - this.state.amountBeatToMove })
                 let grid = this.state.placementGrid;
                 grid.children.forEach(child => child.children[0].userData = { ...child.children[0].userData, isPlaced: false });
             } else {
@@ -515,8 +534,6 @@ export class EditorCanvas extends Component<IProps, IState> {
                 break;
         }
         if ((evt.key === "s" || evt.key === "S") && this.props.canSave && this.props.beatmapid) {
-            console.log("Saving")
-            console.log(this.props.beatmapid, { _notes: { ...this.state._notes }, _obstacles: { ...this.state._obstacles } })
             fetch(`${this.props.apiURL}/savebeatmap`, {
                 method: "POST",
                 headers: {
@@ -532,22 +549,42 @@ export class EditorCanvas extends Component<IProps, IState> {
                     if (data.code === 200) {
                         this.setState({ showToast: true, toastMsg: "Successfully Saved Beatmap", toastType: "success" })
                     } else {
-                        console.log(data)
                         this.setState({ showToast: true, toastMsg: "Beatmap Save Failed", toastType: "danger" })
                     }
                 })
                 .catch((err) => {
-                    console.log(err);
                     this.setState({ showToast: true, toastMsg: "Beatmap Save Failed", toastType: "danger" })
+                    console.error(err)
                 })
         }
     }
 
     render() {
+        let hideStyle: CSSProperties = {
+            visibility: "hidden"
+        };
+        let showStyle: CSSProperties = {
+            visibility: "visible"
+        }
         return (
             <>
                 <Toast isVisible={this.state.showToast} toastText={this.state.toastMsg} hide={() => this.setState({ showToast: false })} type={this.state.toastType} />
-                <div id="canvas-area" onWheel={(evt) => this.moveBeat(evt)}></div>
+                <div id="canvas-area" onWheel={(evt) => this.moveBeat(evt)}>
+                    <button onClick={() => this.setState({ shouldShowControls: true })} id="showControlsBtn" style={!this.state.shouldShowControls ? showStyle : hideStyle}>Show Controls</button>
+                    <div id="editorControls" style={this.state.shouldShowControls ? showStyle : hideStyle}>
+                        <h3>Editor Controls:</h3>
+                        <div>
+                            <label>Beat Increment:</label>
+                            <input type="number" step="0.1" id="beatAmt" className="text-input" value={this.state.amountBeatToMove} onChange={(evt) => this.setState({ amountBeatToMove: parseFloat(evt.target.value) })} />
+                            <label>Beat(s)</label>
+                        </div>
+                        <div>
+                            <label>Move beatmap with song?</label>
+                            <input type="checkbox" checked={this.state.allowMapToMove} onChange={evt => this.setState({ allowMapToMove: evt.target.checked })} />
+                        </div>
+                        <button onClick={() => this.setState({ shouldShowControls: false })}>Hide Controls</button>
+                    </div>
+                </div>
                 <audio id="editor-audio" src={this.props.songFileURL} controls />
             </>
         )

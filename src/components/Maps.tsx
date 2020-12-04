@@ -1,5 +1,6 @@
 import React, { Component, CSSProperties } from 'react'
 import { Redirect } from 'react-router-dom'
+import Hamborger from '../images/Hamborger.png'
 
 interface IProps {
     isUserLogged: boolean
@@ -27,8 +28,11 @@ interface IState {
     beatmapSets: Array<Array<any>>
     shownBeatmaps: Array<Array<any>>
     shouldShowBMSCreate: Array<boolean>
+    shouldShowExtraMenu: Array<boolean>
     bmsType: Array<string>
     beatmapDifs: Array<string>
+    beatmapSpeeds: Array<number>
+    beatmapOffsets: Array<number>
     shouldShowBeatmapCreate: Array<boolean>
     selectedBeatmapSets: Array<number>
     shouldRedirectToMap: boolean
@@ -54,8 +58,11 @@ export class Maps extends Component<IProps, IState> {
         beatmapSets: [],
         shouldShowBMSCreate: [],
         shouldShowBeatmapCreate: [],
+        shouldShowExtraMenu: [],
         bmsType: [],
         beatmapDifs: [],
+        beatmapSpeeds: [],
+        beatmapOffsets: [],
         selectedBeatmapSets: [],
         shownBeatmaps: [],
         shouldRedirectToMap: false
@@ -89,7 +96,7 @@ export class Maps extends Component<IProps, IState> {
         this.setState({ artist: evt.target.value })
     }
 
-    onEnvironmentNameChange = (evt: React.ChangeEvent<HTMLInputElement>) => {
+    onEnvironmentNameChange = (evt: React.ChangeEvent<HTMLSelectElement>) => {
         this.setState({ environmentName: evt.target.value })
     }
 
@@ -142,6 +149,7 @@ export class Maps extends Component<IProps, IState> {
     }
 
     updateMaps = () => {
+        this.setState({ maps: [], shouldShowBeatmapCreate: [], bmsType: [], shouldShowBMSCreate: [], beatmapDifs: [], selectedBeatmapSets: [], shouldShowExtraMenu: [] })
         fetch(`${this.props.apiURL}/getmaps?uuid=${this.props.userUUID}`)
             .then(res => res.json())
             .then(data => {
@@ -150,17 +158,22 @@ export class Maps extends Component<IProps, IState> {
                     let temp = [...this.state.shouldShowBMSCreate];
                     temp.push(false);
                     let temp2 = [...this.state.bmsType]
-                    temp2.push("")
+                    temp2.push("Standard")
                     let temp3 = [...this.state.shouldShowBeatmapCreate]
                     temp3.push(false)
                     let temp4 = [...this.state.beatmapDifs]
-                    temp4.push("")
+                    temp4.push("Easy")
                     let temp5 = [...this.state.selectedBeatmapSets]
                     temp5.push(0)
-                    this.setState({ shouldShowBeatmapCreate: temp3, bmsType: temp2, shouldShowBMSCreate: temp, beatmapDifs: temp4, selectedBeatmapSets: temp5 })
+                    let temp6 = [...this.state.shouldShowExtraMenu];
+                    temp6.push(false)
+                    let temp7 = [...this.state.beatmapSpeeds]
+                    temp7.push(0)
+                    let temp8 = [...this.state.beatmapOffsets]
+                    temp8.push(0)
+                    this.setState({ beatmapSpeeds: temp7, beatmapOffsets: temp8, shouldShowBeatmapCreate: temp3, bmsType: temp2, shouldShowBMSCreate: temp, beatmapDifs: temp4, selectedBeatmapSets: temp5, shouldShowExtraMenu: temp6 })
                     this.getBeatmapSetData(map.beatmapsetids, i)
                 });
-                console.log(data)
             })
     }
 
@@ -188,6 +201,7 @@ export class Maps extends Component<IProps, IState> {
     }
 
     getBeatmaps = (beatmapSetIndex: number, mapIndex: number) => {
+        this.setState({ shownBeatmaps: [] });
         let tempArr = this.state.shownBeatmaps;
         tempArr[mapIndex] = [];
         this.state.beatmapSets[mapIndex][beatmapSetIndex].beatmapids.forEach((beatmapid: string) => {
@@ -195,9 +209,36 @@ export class Maps extends Component<IProps, IState> {
                 .then(res => res.json())
                 .then(data => {
                     tempArr[mapIndex].push(data.beatmap);
+                    tempArr = this.sortMaps(tempArr)
                     this.setState({ shownBeatmaps: tempArr });
                 })
         })
+    }
+
+    selectBeatmapSet(mapIndex: number, bmsIndex: number) {
+        let temp = [...this.state.selectedBeatmapSets];
+        temp[mapIndex] = bmsIndex;
+        this.setState({ selectedBeatmapSets: temp })
+    }
+
+    sortMaps = (maps: Array<any>) => {
+        let difficultyOrder = {
+            "Easy": 1,
+            "Normal": 2,
+            "Hard": 3,
+            "Expert": 5,
+            "ExpertPlus": 8
+        }
+        let returnArr: Array<any> = []
+        maps.forEach(map => {
+            map.sort((dif1: any, dif2: any) => {
+                let dif1Val = difficultyOrder[(dif1.difficulty as "Easy" | "Normal" | "Hard" | "Expert" | "ExpertPlus")];
+                let dif2Val = difficultyOrder[(dif2.difficulty as "Easy" | "Normal" | "Hard" | "Expert" | "ExpertPlus")];
+                return dif2Val - dif1Val;
+            });
+            returnArr.push(map)
+        })
+        return returnArr;
     }
 
     onCreateBeatmapSet = (mapId: string, index: number) => {
@@ -235,23 +276,27 @@ export class Maps extends Component<IProps, IState> {
             body: JSON.stringify({
                 useruuid: this.props.userUUID,
                 difficulty: this.state.beatmapDifs[index],
-                beatmapsetid: beatmapSetID
+                beatmapsetid: beatmapSetID,
+                notejumpspeed: this.state.beatmapSpeeds[index],
+                notejumpoffset: this.state.beatmapOffsets[index]
             })
         })
             .then(res => res.json())
             .then(data => {
                 if (data.code === 200) {
-                    let temp = this.state.shouldShowBeatmapCreate;
+                    let temp = [...this.state.shouldShowBeatmapCreate];
                     temp[index] = false;
-                    this.setState({ shouldShowBeatmapCreate: temp })
-                    let temp2 = this.state.shownBeatmaps;
+                    let temp2 = [...this.state.shownBeatmaps];
+                    if (!temp2[index]) {
+                        temp2[index] = [];
+                    }
                     temp2[index].push(data.beatmap)
+                    this.setState({ shouldShowBeatmapCreate: temp, shownBeatmaps: temp2 })
                 }
             })
     }
 
     openBeatmap = (setIndex: number, difIndex: number) => {
-        console.log(this.state.shownBeatmaps[setIndex][difIndex])
         let origbeatmap = this.state.shownBeatmaps[setIndex][difIndex];
         let map = this.state.maps[setIndex];
         let beatmap = {
@@ -264,12 +309,34 @@ export class Maps extends Component<IProps, IState> {
             notejumpspeed: origbeatmap.notejumpspeed,
             bpm: map.bpm,
         }
-        this.props.setSelectedBeatmap(beatmap.id, beatmap.beatmapfile, beatmap.songfile, beatmap.difficulty, beatmap.difficultylabel, beatmap.notejumpoffset, beatmap.notejumpspeed, beatmap.bpm, () => this.setState({shouldRedirectToMap: true}))
+        this.props.setSelectedBeatmap(beatmap.id, beatmap.beatmapfile, beatmap.songfile, beatmap.difficulty, beatmap.difficultylabel, beatmap.notejumpoffset, beatmap.notejumpspeed, beatmap.bpm, () => this.setState({ shouldRedirectToMap: true }))
+    }
+
+    downloadMap = (mapID: string) => {
+        fetch(`${this.props.apiURL}/bundlemap?mapid=${mapID}&useruuid=${this.props.userUUID}`)
+            .then(res => res.blob())
+            .then(blob => {
+                let file = window.URL.createObjectURL(blob);
+                window.location.assign(file);
+            })
+    }
+
+    deleteMap = (mapID: string) => {
+        fetch(`${this.props.apiURL}/deletemap`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                uuid: this.props.userUUID,
+                mapid: mapID
+            })
+        })
+            .then(res => res.json())
+            .then(data => data.code === 200 ? this.updateMaps() : null)
     }
 
     redirectToMap = () => {
         return this.state.shouldRedirectToMap ?
-        <Redirect to="/editmap" /> : null
+            <Redirect to="/editmap" /> : null
     }
 
     componentDidMount() {
@@ -300,31 +367,51 @@ export class Maps extends Component<IProps, IState> {
                             </div>
                             <section className="map-bms">
                                 <section className="map-bms-tabs">
-                                    {this.state.beatmapSets[index] ? this.state.beatmapSets[index].map((ele, bmsi) => <p className="map-bms-tab" onClick={() => this.getBeatmaps(bmsi, index)} key={ele.id}>{ele.type}</p>) : null}
+                                    {this.state.beatmapSets[index] ? this.state.beatmapSets[index].map((ele, bmsi) => <p className={bmsi === this.state.selectedBeatmapSets[index] ? "map-bms-tab selected" : "map-bms-tab"} onClick={() => { this.getBeatmaps(bmsi, index); this.selectBeatmapSet(index, bmsi) }} key={ele.id}>{ele.type}</p>) : null}
                                     <button className="create-bms" onClick={() => { let shows = [...this.state.shouldShowBMSCreate]; shows[index] = !shows[index]; this.setState({ shouldShowBMSCreate: shows }) }}>New Beatmap Set...</button>
                                 </section>
-                                <section className="map-bms-sets">
-                                    {this.state.shownBeatmaps[index] ? this.state.shownBeatmaps[index].map((bm, bmi) =>
-                                        <div key={bm.id} className="difficulty">
-                                            <p>{bm.difficulty}</p>
-                                            <div className="difficulty-controls">
-                                                <button onClick={() => this.openBeatmap(index, bmi)}>Open {bm.difficulty}</button>
+                                <div className="map-bms-container">
+                                    <section className="map-bms-sets">
+                                        {this.state.shownBeatmaps[index] ? this.state.shownBeatmaps[index].map((bm, bmi) =>
+                                            <div key={bm.id} className="difficulty">
+                                                <p>{bm.difficulty}</p>
+                                                <div className="difficulty-controls">
+                                                    <button onClick={() => this.openBeatmap(index, bmi)}>Open {bm.difficulty}</button>
+                                                </div>
+                                            </div>) : null}
+                                        <button style={this.state.shouldShowBeatmapCreate[index] ? hideStyle : showStyle} onClick={() => { let shows = [...this.state.shouldShowBeatmapCreate]; shows[index] = !shows[index]; this.setState({ shouldShowBeatmapCreate: shows }) }}>Create Beatmap</button>
+                                        <article className="beatmap-create" style={this.state.shouldShowBeatmapCreate[index] ? showStyle : hideStyle}>
+                                            <select className="text-input" placeholder="Difficulty..." onChange={evt => { let difs = [...this.state.beatmapDifs]; difs[index] = evt.target.value; this.setState({ beatmapDifs: difs }) }} value={this.state.beatmapDifs[index]}>
+                                                <option value="Easy">Easy</option>
+                                                <option value="Normal">Normal</option>
+                                                <option value="Hard">Hard</option>
+                                                <option value="Expert">Expert</option>
+                                                <option value="ExpertPlus">ExpertPlus</option>
+                                            </select>
+                                            <input type="number" placeholder="Note Jump Speed" step="0.1" value={this.state.beatmapSpeeds[index] ? this.state.beatmapSpeeds[index] : undefined} onChange={evt => { let tmp = [...this.state.beatmapSpeeds]; tmp[index] = parseFloat(evt.target.value); this.setState({ beatmapSpeeds: tmp }) }} />
+                                            <input type="number" placeholder="Note Jump Offset" step="0.1" value={this.state.beatmapOffsets[index] ? this.state.beatmapOffsets[index] : undefined} onChange={evt => { let tmp = [...this.state.beatmapOffsets]; tmp[index] = parseFloat(evt.target.value); this.setState({ beatmapOffsets: tmp }) }} />
+                                            <button onClick={() => this.onCreateBeatmap(this.state.beatmapSets[index][this.state.selectedBeatmapSets[index]].id, index)}>Create Beatmap Set</button>
+                                        </article>
+                                        <article className="bms-create-modal" style={this.state.shouldShowBMSCreate[index] ? showStyle : hideStyle}>
+                                            <div className="bms-create-inputs">
+                                                <select className="text-input" placeholder="Beatmap Set Type..." onChange={(evt) => { let types = [...this.state.bmsType]; types[index] = evt.target.value; this.setState({ bmsType: types }) }} value={this.state.bmsType[index]}>
+                                                    <option value="Standard">Standard</option>
+                                                    <option value="NoArrows">NoArrows</option>
+                                                    <option value="OneSaber">OneSaber</option>
+                                                </select>
+                                                <button onClick={() => this.onCreateBeatmapSet(map.id, index)}>Create Beatmap Set</button>
                                             </div>
-                                        </div>) : null}
-                                    <button style={this.state.shouldShowBeatmapCreate[index] ? hideStyle : showStyle} onClick={() => { let shows = [...this.state.shouldShowBeatmapCreate]; shows[index] = !shows[index]; this.setState({ shouldShowBeatmapCreate: shows }) }}>Create Beatmap</button>
-                                    <article className="beatmap-create" style={this.state.shouldShowBeatmapCreate[index] ? showStyle : hideStyle}>
-                                        <input className="text-input" type="text" placeholder="Difficulty..." onChange={evt => { let difs = [...this.state.beatmapDifs]; difs[index] = evt.target.value; this.setState({ beatmapDifs: difs }) }} value={this.state.beatmapDifs[index]} />
-                                        <button onClick={() => this.onCreateBeatmap(this.state.beatmapSets[index][this.state.selectedBeatmapSets[index]].id, index)}>Create Beatmap Set</button>
-                                    </article>
-                                    <article className="bms-create-modal" style={this.state.shouldShowBMSCreate[index] ? showStyle : hideStyle}>
-                                        <div className="bms-create-inputs">
-                                            <input className="text-input" type="text" placeholder="Beatmap Set Type..." onChange={(evt) => { let types = [...this.state.bmsType]; types[index] = evt.target.value; this.setState({ bmsType: types }) }} value={this.state.bmsType[index]} />
-                                            <button onClick={() => this.onCreateBeatmapSet(map.id, index)}>Create Beatmap Set</button>
-                                        </div>
-                                    </article>
+                                        </article>
+                                    </section>
+                                </div>
+                            </section>
+                            <section className="map-controls">
+                                <img src={Hamborger} alt="Logo" onClick={() => { let tmp = [...this.state.shouldShowExtraMenu]; tmp[index] = !tmp[index]; this.setState({ shouldShowExtraMenu: tmp }) }} />
+                                <section className="controls" style={this.state.shouldShowExtraMenu[index] ? showStyle : hideStyle}>
+                                    <p className="option" onClick={() => this.downloadMap(map.id)}>Download Map</p>
+                                    <p className="option" onClick={() => this.deleteMap(map.id)}>Delete Map</p>
                                 </section>
                             </section>
-                            <section className="map-controls"></section>
                         </article>
                     )
                     )}
@@ -332,24 +419,75 @@ export class Maps extends Component<IProps, IState> {
                 <section id="createMapModal" className="form" style={this.state.shouldShowCreate ? showStyle : hideStyle}>
                     <article>
                         <div>
-                            <label>Audio File</label>
+                            <label>Audio File:</label>
                             <input type="file" id="audio" accept=".mp3,.wav,.ogg|audio/*" onChange={this.onSongAudioChange} />
                         </div>
                         <div>
-                            <label>Cover Image</label>
+                            <label>Cover Image:</label>
                             <input type="file" accept=".jpg,.png,.jpeg|image/*" onChange={this.onSongImageChange} />
                         </div>
-                        <input type="text" className="text-input" placeholder="Version" onChange={this.onVersionChange} value={this.state.version} />
-                        <input type="text" className="text-input" placeholder="Name" onChange={this.onNameChange} value={this.state.name} />
-                        <input type="text" className="text-input" placeholder="Subname" onChange={this.onSubNameChange} value={this.state.subName} />
-                        <input type="text" className="text-input" placeholder="Artist" onChange={this.onArtistChange} value={this.state.artist} />
-                        <input type="text" className="text-input" placeholder="Environment Name" onChange={this.onEnvironmentNameChange} value={this.state.environmentName} />
-                        <input type="number" className="text-input" placeholder="BPM" onChange={this.onBpmChange} value={this.state.bpm} />
-                        <input type="number" className="text-input" placeholder="Shuffle" onChange={this.onShuffleChange} value={this.state.shuffle} />
-                        <input type="number" className="text-input" placeholder="Shuffle Period" onChange={this.onShufflePeriodChange} value={this.state.shufflePeriod} />
-                        <input type="number" className="text-input" placeholder="Preview Start" onChange={this.onPreviewStartChange} value={this.state.previewStart} />
-                        <input type="number" className="text-input" placeholder="Preview Duration" onChange={this.onPreviewDurationChange} value={this.state.previewDuration} />
-                        <input type="number" className="text-input" placeholder="Song Time Offset" onChange={this.onSongTimeOffsetChange} value={this.state.songTimeOffset} />
+                        <div>
+                            <label>Version:</label>
+                            <input type="text" className="text-input" placeholder="Version" onChange={this.onVersionChange} value={this.state.version} />
+                        </div>
+                        <div>
+                            <label>Name:</label>
+                            <input type="text" className="text-input" placeholder="Name" onChange={this.onNameChange} value={this.state.name} />
+                        </div>
+                        <div>
+                            <label>Subname:</label>
+                            <input type="text" className="text-input" placeholder="Subname" onChange={this.onSubNameChange} value={this.state.subName} />
+                        </div>
+                        <div>
+                            <label>Artist:</label>
+                            <input type="text" className="text-input" placeholder="Artist" onChange={this.onArtistChange} value={this.state.artist} />
+                        </div>
+                        <div>
+                            <label>Environment Name:</label>
+                            <select className="text-input" placeholder="Environment Name" onChange={this.onEnvironmentNameChange} value={this.state.environmentName}>
+                                <option value="DefaultEnvironment">Default Environment</option>
+                                <option value="OriginsEnvironment">Origins Environment</option>
+                                <option value="TriangleEnvironment">Triangle Environment</option>
+                                <option value="NiceEnvironment">Nice Environment</option>
+                                <option value="BigMirrorEnvironment">Big Mirror Environment</option>
+                                <option value="DragonsEnvironment">Dragons Environment</option>
+                                <option value="KDAEnvironment">KDA Environment</option>
+                                <option value="MonstercatEnvironment">Monstercat Environment</option>
+                                <option value="CrabRaveEnvironment">Crab Rave Environment</option>
+                                <option value="PanicEnvironment">Panic Environment</option>
+                                <option value="RocketEnvironment">Rocket Environment</option>
+                                <option value="GreenDayEnvironment">Green Day Environment</option>
+                                <option value="GreenDayGrenadeEnvironment">Green Day Grenade Environment</option>
+                                <option value="TimbalandEnvironment">Timbaland Environment</option>
+                                <option value="FitBeatEnvironment">FitBeat Environment</option>
+                                <option value="LinkinParkEnvironment">Linkin Park Environment</option>
+                                <option value="BTSEnvironment">BTS Environment</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>BPM:</label>
+                            <input type="number" className="text-input" placeholder="BPM" onChange={this.onBpmChange} value={this.state.bpm ? this.state.bpm : undefined} />
+                        </div>
+                        <div>
+                            <label>Shuffle:</label>
+                            <input type="number" className="text-input" placeholder="Shuffle" onChange={this.onShuffleChange} value={this.state.shuffle ? this.state.shuffle : undefined} />
+                        </div>
+                        <div>
+                            <label>Shuffle Period:</label>
+                            <input type="number" className="text-input" placeholder="Shuffle Period" onChange={this.onShufflePeriodChange} value={this.state.shufflePeriod ? this.state.shufflePeriod : undefined} />
+                        </div>
+                        <div>
+                            <label>Preview Start:</label>
+                            <input type="number" className="text-input" placeholder="Preview Start" onChange={this.onPreviewStartChange} value={this.state.previewStart ? this.state.previewStart : undefined} />
+                        </div>
+                        <div>
+                            <label>Preview Duration:</label>
+                            <input type="number" className="text-input" placeholder="Preview Duration" onChange={this.onPreviewDurationChange} value={this.state.previewDuration ? this.state.previewDuration : undefined} />
+                        </div>
+                        <div>
+                            <label>Song Time Offset:</label>
+                            <input type="number" className="text-input" placeholder="Song Time Offset" onChange={this.onSongTimeOffsetChange} value={this.state.songTimeOffset ? this.state.songTimeOffset : undefined} />
+                        </div>
                         <div>
                             <button onClick={() => this.showCreate(false)}>Cancel</button>
                             <button onClick={() => { this.onCreateMap(); this.showCreate(false) }}>Make Map</button>

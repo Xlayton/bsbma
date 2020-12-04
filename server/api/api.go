@@ -29,12 +29,12 @@ import (
 
 //Beatmap is the playable part of a Map, and is part of a BeatmapSet
 type Beatmap struct {
-	ID              string `json:"id"`
-	Difficulty      string `json:"difficulty"`
-	BeatmapFile     string `json:"beatmapfile"`
-	NoteJumpSpeed   int16  `json:"notejumpspeed"`
-	NoteJumpOffset  int16  `json:"notejumpoffset"`
-	DifficultyLabel string `json:"difficultylabel,omitempty"`
+	ID              string  `json:"id"`
+	Difficulty      string  `json:"difficulty"`
+	BeatmapFile     string  `json:"beatmapfile"`
+	NoteJumpSpeed   float32 `json:"notejumpspeed"`
+	NoteJumpOffset  float32 `json:"notejumpoffset"`
+	DifficultyLabel string  `json:"difficultylabel,omitempty"`
 }
 
 //BeatmapSet is a set of beatmaps for a certain type of gameplay
@@ -56,11 +56,11 @@ type Map struct {
 	EnvironmentName string   `json:"environmentname"`
 	Song            string   `json:"song"`
 	Bpm             int      `json:"bpm"`
-	Shuffle         int      `json:"shuffle"`
-	ShufflePeriod   int      `json:"shuffleperiod"`
-	PreviewStart    int      `json:"previewstart"`
-	PreviewDuration int      `json:"previewduration"`
-	SongTimeOffset  int      `json:"songtimeoffset"`
+	Shuffle         float32  `json:"shuffle"`
+	ShufflePeriod   float32  `json:"shuffleperiod"`
+	PreviewStart    float32  `json:"previewstart"`
+	PreviewDuration float32  `json:"previewduration"`
+	SongTimeOffset  float32  `json:"songtimeoffset"`
 	BeatmapSetIDs   []string `json:"beatmapsetids"`
 }
 
@@ -157,6 +157,7 @@ func deleteMap(w http.ResponseWriter, r *http.Request) {
 			coll = client.Database("bsbma").Collection("beatmapsets")
 			coll.DeleteOne(context.TODO(), bson.M{"id": bmsetid})
 		}
+		json.NewEncoder(w).Encode(GeneralResponse{200, "OK"})
 	}
 }
 
@@ -310,27 +311,27 @@ func makeMap(w http.ResponseWriter, r *http.Request) {
 			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid bpm"})
 			return
 		}
-		shuffleInt, err := strconv.Atoi(shuffle)
+		shuffleInt, err := strconv.ParseFloat(shuffle, 32)
 		if err != nil {
 			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid shuffle"})
 			return
 		}
-		shufflePeriodInt, err := strconv.Atoi(shufflePeriod)
+		shufflePeriodInt, err := strconv.ParseFloat(shufflePeriod, 32)
 		if err != nil {
 			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid shuffle period"})
 			return
 		}
-		previewStartInt, err := strconv.Atoi(previewStart)
+		previewStartInt, err := strconv.ParseFloat(previewStart, 32)
 		if err != nil {
 			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid preview start"})
 			return
 		}
-		previewDurationInt, err := strconv.Atoi(previewDuration)
+		previewDurationInt, err := strconv.ParseFloat(previewDuration, 32)
 		if err != nil {
 			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid preview duration"})
 			return
 		}
-		songTimeOffsetInt, err := strconv.Atoi(songTimeOffset)
+		songTimeOffsetInt, err := strconv.ParseFloat(songTimeOffset, 32)
 		if err != nil {
 			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include valid song time offset"})
 			return
@@ -358,7 +359,7 @@ func makeMap(w http.ResponseWriter, r *http.Request) {
 		imageFilePath := "./image/" + imageidString + imageExt
 		io.Copy(&imageBuf, imagefile)
 		ioutil.WriteFile(imageFilePath, imageBuf.Bytes(), 0644)
-		createdMap := Map{mapidstring, version, name, subname, artist, user.Username, imageFilePath[1:], environmentName, songFilePath[1:], bpmInt, shuffleInt, shufflePeriodInt, previewStartInt, previewDurationInt, songTimeOffsetInt, []string{}}
+		createdMap := Map{mapidstring, version, name, subname, artist, user.Username, imageFilePath[1:], environmentName, songFilePath[1:], bpmInt, float32(shuffleInt), float32(shufflePeriodInt), float32(previewStartInt), float32(previewDurationInt), float32(songTimeOffsetInt), []string{}}
 		update := bson.D{{Key: "$push", Value: bson.D{{Key: "mapids", Value: mapidstring}}}}
 		coll.UpdateOne(context.TODO(), bson.M{"uuid": userUUID}, update)
 		client.Disconnect(ctx)
@@ -504,9 +505,11 @@ func makeBeatmap(w http.ResponseWriter, r *http.Request) {
 	setHeaders(w)
 	if r.Method == "POST" {
 		var form struct {
-			UserUUID          string `json:"useruuid"`
-			BeatmapDifficulty string `json:"difficulty"`
-			BeatmapSetID      string `json:"beatmapsetid"`
+			UserUUID          string  `json:"useruuid"`
+			BeatmapDifficulty string  `json:"difficulty"`
+			BeatmapSetID      string  `json:"beatmapsetid"`
+			NoteJumpSpeed     float32 `json:"notejumpspeed"`
+			NoteJumpOffset    float32 `json:"notejumpoffset"`
 		}
 		err := json.NewDecoder(r.Body).Decode(&form)
 		if err != nil {
@@ -528,7 +531,7 @@ func makeBeatmap(w http.ResponseWriter, r *http.Request) {
 		client, ctx = getDbConnection()
 		defer client.Disconnect(ctx)
 		coll = client.Database("bsbma").Collection("beatmaps")
-		beatmap := Beatmap{beatmapUUIDString, form.BeatmapDifficulty, fmt.Sprintf("./beatmaps/%s.dat", beatmapUUIDString), 15, 15, form.BeatmapDifficulty}
+		beatmap := Beatmap{beatmapUUIDString, form.BeatmapDifficulty, fmt.Sprintf("./beatmaps/%s.dat", beatmapUUIDString), form.NoteJumpSpeed, form.NoteJumpOffset, form.BeatmapDifficulty}
 		coll.InsertOne(context.TODO(), beatmap)
 		json.NewEncoder(w).Encode(BeatmapResponse{200, "OK", beatmap})
 	} else {
@@ -703,7 +706,6 @@ func getUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func bundleMap(w http.ResponseWriter, r *http.Request) {
-	setDownloadHeaders(w)
 	if r.Method == "GET" {
 		//Parse data from params
 		r.ParseForm()
@@ -725,6 +727,7 @@ func bundleMap(w http.ResponseWriter, r *http.Request) {
 		coll = client.Database("bsbma").Collection("maps")
 		var foundMap Map
 		coll.FindOne(context.TODO(), bson.M{"id": mapID}).Decode(&foundMap)
+		setDownloadHeaders(w, foundMap.ID)
 		allBeatmapSets := []BeatmapSet{}
 		allDifficultyMaps := []Beatmap{}
 		folder := fmt.Sprintf("./temp/%s", foundMap.ID)
@@ -784,8 +787,8 @@ func bundleMap(w http.ResponseWriter, r *http.Request) {
 					"_difficulty": "%s",
           			"_difficultyRank": %d,
           			"_beatmapFilename": "%s",
-          			"_noteJumpMovementSpeed": %d,
-          			"_noteJumpStartBeatOffset": %d
+          			"_noteJumpMovementSpeed": %f,
+          			"_noteJumpStartBeatOffset": %f
 					}`, bm.Difficulty, difficulty, fmt.Sprintf("%s%s.dat", bm.Difficulty, bms.Type), bm.NoteJumpSpeed, bm.NoteJumpOffset)
 					if foundCount != len(bms.DifficultyBeatmapIds)-1 {
 						beatmapString += ","
@@ -807,14 +810,14 @@ func bundleMap(w http.ResponseWriter, r *http.Request) {
 			"_songAuthorName": "%s",
 			"_levelAuthorName": "%s",
 			"_beatsPerMinute": %d,
-			"_shuffle": %d,
-			"_shufflePeriod": %d,
-			"_previewStartTime": %d,
-			"_previewDuration": %d,
+			"_shuffle": %f,
+			"_shufflePeriod": %f,
+			"_previewStartTime": %f,
+			"_previewDuration": %f,
 			"_songFilename": "%s",
 			"_coverImageFilename": "%s",
 			"_environmentName": "%s",
-			"_songTimeOffset": %d,
+			"_songTimeOffset": %f,
 			"_customData": {
 				"_editors": {
 					"BSBMA": {
@@ -851,7 +854,6 @@ func bundleMap(w http.ResponseWriter, r *http.Request) {
 		}
 		zipBundle(folder, fmt.Sprintf("%s.zip", folder))
 		os.RemoveAll(folder)
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.zip", foundMap.ID))
 		http.ServeFile(w, r, fmt.Sprintf("./temp/%s.zip", foundMap.ID))
 	}
 }
@@ -952,13 +954,14 @@ func setHeaders(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
 }
 
-func setDownloadHeaders(w http.ResponseWriter) {
+func setDownloadHeaders(w http.ResponseWriter, mapID string) {
 	w.Header().Set("Access-Control-Allow-Headers", "*")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
-	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", "attachment; filename="+"fileName.here")
 	w.Header().Set("Content-Transfer-Encoding", "binary")
 	w.Header().Set("Expires", "0")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s.zip", mapID))
 }
 
 func userContainsMap(user User, mapID string) bool {

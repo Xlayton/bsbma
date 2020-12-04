@@ -7,6 +7,7 @@
     grid-template-columns: 1.5fr 9fr;
     grid-template-areas: "nav body";
     position: relative;
+    font-family: 'Lato', sans-serif;
 }
 
 #editor-audio {
@@ -132,7 +133,7 @@
 .map {
     display: grid;
     position: relative;
-    grid-template-columns: 15% 15% 65% 5%;
+    grid-template-columns: 15% 15% 63% 7%;
     grid-template-areas: "image title bms control"
 }
 
@@ -174,17 +175,77 @@
     border: 1px solid #000;
 }
 
+.map>.map-bms>.map-bms-tabs>.map-bms-tab.selected {
+    background-color: #dfdfdf;
+}
+
 .map>.map-bms>.map-bms-tabs>* {
     width: 100%;
     margin: 0;
 }
 
-.map-bms-sets {
+.map-controls {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.map-controls img {
+    width: 50%;
+    cursor: pointer;
+}
+
+.map-controls>.controls {
+    position: absolute;
+    top: 75%;
+    width: 100%;
+    background-color: #efefef;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+}
+
+.map-controls>.controls>.option {
+    cursor: pointer;
     height: 100%;
     width: 100%;
+    margin: 0;
+    padding: 15px 0;
+}
+
+.map-controls>.controls>.option:hover {
+    background-color: #cfcfcf;
+}
+
+.map-controls>.controls>.option:active {
+    background-color: #afafaf;
+}
+
+.map-bms-sets {
+    width: 100%;
+    height: 100px;
     position: relative;
-    overflow-y: scroll;
-    max-height: 150px;
+    overflow-y: auto;
+    position: absolute;
+    top: 0;
+}
+
+.map-bms-container {
+    width: 100%;
+    height: 100px;
+    position: relative;
+}
+
+.map-bms-sets>.difficulty {
+    display: flex;
+    width: 95%;
+    align-items: center;
+    flex: 1 1 auto;
+}
+
+.map-bms-sets>.difficulty>.difficulty-controls {
+    margin-left: auto;
 }
 
 .bms-create-modal {
@@ -229,4 +290,42 @@
     justify-content: center;
     align-items: center;
     background: rgba(100, 100, 100, 0.5)
+}
+
+#editorControls {
+    position: absolute;
+    top: 0;
+    left: 0;
+    background-color: rgba(200, 200, 200, 0.4);
+    padding: 5px;
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+#showControlsBtn {
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+#editorControls>h3 {
+    font-size: 1.1em;
+}
+
+#editorControls>div {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+}
+
+#editorControls>div:nth-child(2n + 1) {
+    border-bottom: 1px solid #efefef;
+    border-top: 1px solid #efefef;
+}
+
+#canvas-area {
+    position: relative;
 }
