@@ -277,7 +277,7 @@ export class Maps extends Component<IProps, IState> {
     }
 
     onCreateBeatmap = (beatmapSetID: string, index: number) => {
-        console.log("This should work :\\")
+        console.log(beatmapSetID)
         fetch(`${this.props.apiURL}/makebeatmap`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -388,7 +388,7 @@ export class Maps extends Component<IProps, IState> {
                                                     <button onClick={() => this.openBeatmap(index, bmi)}>Open {bm.difficulty}</button>
                                                 </div>
                                             </div>) : null}
-                                        <button style={this.state.shouldShowBeatmapCreate[index] ? hideStyle : showStyle} onClick={() => { let shows = [...this.state.shouldShowBeatmapCreate]; shows[index] = !shows[index]; this.setState({ shouldShowBeatmapCreate: shows }) }}>Create Beatmap</button>
+                                        {this.state.selectedBeatmapSets[index] !== undefined && this.state.beatmapSets[index] !== undefined && this.state.beatmapSets[index][this.state.selectedBeatmapSets[index]] !== undefined && this.state.beatmapSets[index][this.state.selectedBeatmapSets[index]].id ? <button style={this.state.shouldShowBeatmapCreate[index] ? hideStyle : showStyle} onClick={() => { let shows = [...this.state.shouldShowBeatmapCreate]; shows[index] = !shows[index]; this.setState({ shouldShowBeatmapCreate: shows }) }}>Create Beatmap</button> : null }
                                         <article className="beatmap-create" style={this.state.shouldShowBeatmapCreate[index] ? showStyle : hideStyle}>
                                             <select className="text-input" placeholder="Difficulty..." onChange={evt => { let difs = [...this.state.beatmapDifs]; difs[index] = evt.target.value; this.setState({ beatmapDifs: difs }) }} value={this.state.beatmapDifs[index]}>
                                                 <option value="Easy">Easy</option>
