@@ -47,7 +47,7 @@ export class Maps extends Component<IProps, IState> {
         name: "",
         subName: "",
         artist: "",
-        environmentName: "",
+        environmentName: "DefaultEnvironment",
         bpm: 0,
         shuffle: 0,
         shufflePeriod: 0,
@@ -143,7 +143,13 @@ export class Maps extends Component<IProps, IState> {
             formData.append("songtimeoffset", `${this.state.songTimeOffset}`)
             fetch(`${this.props.apiURL}/makemap`, { method: "POST", body: formData })
                 .then(res => res.json())
-                .then(data => data.code === 200 ? this.updateMaps() : null)
+                .then(data => {
+                    if(data.code === 200) {
+                        this.updateMaps()
+                    } else {
+                        console.log(data)
+                    }
+                })
                 .catch((err) => console.error(err))
         }
     }
@@ -270,6 +276,7 @@ export class Maps extends Component<IProps, IState> {
     }
 
     onCreateBeatmap = (beatmapSetID: string, index: number) => {
+        console.log("This should work :\\")
         fetch(`${this.props.apiURL}/makebeatmap`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -283,6 +290,7 @@ export class Maps extends Component<IProps, IState> {
         })
             .then(res => res.json())
             .then(data => {
+                console.log(data)
                 if (data.code === 200) {
                     let temp = [...this.state.shouldShowBeatmapCreate];
                     temp[index] = false;
@@ -390,7 +398,7 @@ export class Maps extends Component<IProps, IState> {
                                             </select>
                                             <input type="number" placeholder="Note Jump Speed" step="0.1" value={this.state.beatmapSpeeds[index] ? this.state.beatmapSpeeds[index] : undefined} onChange={evt => { let tmp = [...this.state.beatmapSpeeds]; tmp[index] = parseFloat(evt.target.value); this.setState({ beatmapSpeeds: tmp }) }} />
                                             <input type="number" placeholder="Note Jump Offset" step="0.1" value={this.state.beatmapOffsets[index] ? this.state.beatmapOffsets[index] : undefined} onChange={evt => { let tmp = [...this.state.beatmapOffsets]; tmp[index] = parseFloat(evt.target.value); this.setState({ beatmapOffsets: tmp }) }} />
-                                            <button onClick={() => this.onCreateBeatmap(this.state.beatmapSets[index][this.state.selectedBeatmapSets[index]].id, index)}>Create Beatmap Set</button>
+                                            <button onClick={() => this.onCreateBeatmap(this.state.beatmapSets[index][this.state.selectedBeatmapSets[index]].id, index)}>Create Beatmap</button>
                                         </article>
                                         <article className="bms-create-modal" style={this.state.shouldShowBMSCreate[index] ? showStyle : hideStyle}>
                                             <div className="bms-create-inputs">
