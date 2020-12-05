@@ -155,32 +155,33 @@ export class Maps extends Component<IProps, IState> {
     }
 
     updateMaps = () => {
-        this.setState({ maps: [], shouldShowBeatmapCreate: [], bmsType: [], shouldShowBMSCreate: [], beatmapDifs: [], selectedBeatmapSets: [], shouldShowExtraMenu: [] })
-        fetch(`${this.props.apiURL}/getmaps?uuid=${this.props.userUUID}`)
-            .then(res => res.json())
-            .then(data => {
-                this.setState({ maps: data.maps });
-                data.maps.forEach((map: any, i: number) => {
-                    let temp = [...this.state.shouldShowBMSCreate];
-                    temp.push(false);
-                    let temp2 = [...this.state.bmsType]
-                    temp2.push("Standard")
-                    let temp3 = [...this.state.shouldShowBeatmapCreate]
-                    temp3.push(false)
-                    let temp4 = [...this.state.beatmapDifs]
-                    temp4.push("Easy")
-                    let temp5 = [...this.state.selectedBeatmapSets]
-                    temp5.push(0)
-                    let temp6 = [...this.state.shouldShowExtraMenu];
-                    temp6.push(false)
-                    let temp7 = [...this.state.beatmapSpeeds]
-                    temp7.push(0)
-                    let temp8 = [...this.state.beatmapOffsets]
-                    temp8.push(0)
-                    this.setState({ beatmapSpeeds: temp7, beatmapOffsets: temp8, shouldShowBeatmapCreate: temp3, bmsType: temp2, shouldShowBMSCreate: temp, beatmapDifs: temp4, selectedBeatmapSets: temp5, shouldShowExtraMenu: temp6 })
-                    this.getBeatmapSetData(map.beatmapsetids, i)
-                });
-            })
+        this.setState({ maps: [], shouldShowBeatmapCreate: [], bmsType: [], shouldShowBMSCreate: [], beatmapDifs: [], selectedBeatmapSets: [], shouldShowExtraMenu: [] } , () => {
+            fetch(`${this.props.apiURL}/getmaps?uuid=${this.props.userUUID}`)
+                .then(res => res.json())
+                .then(data => {
+                    this.setState({ maps: data.maps });
+                    data.maps.forEach((map: any, i: number) => {
+                        let temp = [...this.state.shouldShowBMSCreate];
+                        temp.push(false);
+                        let temp2 = [...this.state.bmsType]
+                        temp2.push("Standard")
+                        let temp3 = [...this.state.shouldShowBeatmapCreate]
+                        temp3.push(false)
+                        let temp4 = [...this.state.beatmapDifs]
+                        temp4.push("Easy")
+                        let temp5 = [...this.state.selectedBeatmapSets]
+                        temp5.push(0)
+                        let temp6 = [...this.state.shouldShowExtraMenu];
+                        temp6.push(false)
+                        let temp7 = [...this.state.beatmapSpeeds]
+                        temp7.push(0)
+                        let temp8 = [...this.state.beatmapOffsets]
+                        temp8.push(0)
+                        this.setState({ beatmapSpeeds: temp7, beatmapOffsets: temp8, shouldShowBeatmapCreate: temp3, bmsType: temp2, shouldShowBMSCreate: temp, beatmapDifs: temp4, selectedBeatmapSets: temp5, shouldShowExtraMenu: temp6 })
+                        this.getBeatmapSetData(map.beatmapsetids, i)
+                    });
+                })
+        })
     }
 
     showCreate = (shouldShow: boolean = true) => {
