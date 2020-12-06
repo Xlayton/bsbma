@@ -273,6 +273,36 @@
     background-color: #8f8f8f;
 }
 
+.key-controls {
+    position: absolute;
+    z-index: 5;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: rgba(200, 200, 200, 0.7);
+}
+
+.key-controls>div {
+    width: 50%;
+    background-color: rgb(200, 200, 200);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.key-controls>div>.key-control:nth-child(n) {
+    border-bottom: 1px solid #000
+}
+
+.key-control {
+    display: flex;
+    justify-content: space-between;
+}
+
 #createMapModal {
     position: absolute;
     top: 0;

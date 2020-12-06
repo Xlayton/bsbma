@@ -44,12 +44,13 @@ interface IState {
     }>
     showToast: boolean
     toastType: "success" | "danger" | ""
-    toastMsg: "Successfully Saved Beatmap" | "Beatmap Save Failed" | "",
+    toastMsg: "Successfully Saved Beatmap" | "Beatmap Save Failed" | "To Save Maps, You have To Create An Account" | "",
     amountBeatToMove: number
     allowMapToMove: boolean
     timeToRestore: number
     shouldUpdateTime: boolean
     shouldShowControls: boolean
+    shouldShowKeyControls: boolean
 }
 export class EditorCanvas extends Component<IProps, IState> {
 
@@ -71,7 +72,8 @@ export class EditorCanvas extends Component<IProps, IState> {
         allowMapToMove: true,
         timeToRestore: 0,
         shouldUpdateTime: true,
-        shouldShowControls: true
+        shouldShowControls: true,
+        shouldShowKeyControls: false
     }
 
     componentDidMount() {
@@ -567,6 +569,8 @@ export class EditorCanvas extends Component<IProps, IState> {
                     this.setState({ showToast: true, toastMsg: "Beatmap Save Failed", toastType: "danger" })
                     console.error(err)
                 })
+        } else if ((evt.key === "s" || evt.key === "S") && !this.props.canSave) {
+            this.setState({ showToast: true, toastMsg: "To Save Maps, You have To Create An Account", toastType: "danger" })
         }
     }
 
@@ -654,7 +658,40 @@ export class EditorCanvas extends Component<IProps, IState> {
                             <label>Selected Block:</label>
                             <img src={this.getSelectedImageIcon()} style={this.getIconRotateAngle(this.state.cutDirection)} alt="" />
                         </div>
+                        <div>
+                            <label>Show Key Controls</label>
+                            <button onClick={() => this.setState({ shouldShowKeyControls: true })}>Show</button>
+                        </div>
                         <button onClick={() => this.setState({ shouldShowControls: false })} >Hide Controls</button>
+                    </div>
+                    <div className="key-controls" style={this.state.shouldShowKeyControls ? showStyle : hideStyle}>
+                        <div>
+                            <div className="key-control">
+                                <p className="key">Left Click: </p>
+                                <p className="control">Places Note</p>
+                            </div>
+                            <div className="key-control">
+                                <p className="key">Right Click: </p>
+                                <p className="control">Deletes Note</p>
+                            </div>
+                            <div className="key-control">
+                                <p className="key">1-4:</p>
+                                <p className="control">Changes Note Type</p>
+                            </div>
+                            <div className="key-control">
+                                <p className="key">S or s:</p>
+                                <p className="control">Saves Beatmap</p>
+                            </div>
+                            <div className="key-control">
+                                <p className="key">Arrow Keys: </p>
+                                <p className="control">Changes Note Orientation</p>
+                            </div>
+                            <div className="key-control">
+                                <p className="key">Scroll: </p>
+                                <p className="control">Increases/Decreases Current Beat</p>
+                            </div>
+                            <button onClick={() => this.setState({ shouldShowKeyControls: false })}>Close</button>
+                        </div>
                     </div>
                 </div>
                 <audio id="editor-audio" src={this.props.songFileURL} controls />
