@@ -191,7 +191,8 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		username := r.FormValue("username")
 		password := r.FormValue("password")
 		email := r.FormValue("email")
-		if isStringEmpty(username) || isStringEmpty(password) || isStringEmpty(email) {
+		emailRegex := regexp.MustCompile(`^(?:[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~])(?:\.?[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~]+)+\@(?:[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~]+)(?:\.?[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~])+$`)
+		if isStringEmpty(username) || isStringEmpty(password) || isStringEmpty(email) || !emailRegex.Match([]byte(email)) {
 			json.NewEncoder(w).Encode(GeneralResponse{400, "Please include a username, email, and password"})
 			return
 		}
@@ -211,7 +212,8 @@ func createUser(w http.ResponseWriter, r *http.Request) {
 		testUser := User{userID.String(), username, email, string(passwordHash), "/static" + imageFilePath[1:], []string{}}
 		_, err = coll.InsertOne(context.TODO(), testUser)
 		if err != nil {
-			log.Fatal(err)
+			json.NewEncoder(w).Encode(GeneralResponse{400, "Username/Email has already been taken"})
+			return
 		}
 		client.Disconnect(ctx)
 
@@ -573,9 +575,10 @@ func editUser(w http.ResponseWriter, r *http.Request) {
 		oldPass := r.Form.Get("oldpass")
 		newPass := r.Form.Get("newpass")
 		email := r.Form.Get("email")
+		emailRegex := regexp.MustCompile(`^(?:[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~])(?:\.?[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~]+)+\@(?:[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~]+)(?:\.?[A-Za-z0-9!#$%&'*+\-/=?^_` + "`" + `{|}~])+$`)
 		file, header, err := r.FormFile("profileimage")
 		//Check minimum required fields
-		if isStringEmpty(reqUUID) || isStringEmpty(username) || isStringEmpty(oldPass) || isStringEmpty(email) {
+		if isStringEmpty(reqUUID) || isStringEmpty(username) || isStringEmpty(oldPass) || isStringEmpty(email) || !emailRegex.Match([]byte(email)) {
 			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide necessary fields"})
 			return
 
@@ -594,11 +597,19 @@ func editUser(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			if isStringEmpty(newPass) {
 				update := bson.D{{Key: "$set", Value: bson.D{{Key: "username", Value: username}, {Key: "email", Value: email}}}}
-				coll.UpdateOne(context.TODO(), bson.M{"uuid": reqUUID}, update)
+				_, err = coll.UpdateOne(context.TODO(), bson.M{"uuid": reqUUID}, update)
+				if err != nil {
+					json.NewEncoder(w).Encode(GeneralResponse{400, "Username/Email has already been taken"})
+					return
+				}
 			} else {
 				newHash := hashPass([]byte(newPass))
 				update := bson.D{{Key: "$set", Value: bson.D{{Key: "username", Value: username}, {Key: "email", Value: email}, {Key: "passhash", Value: string(newHash)}}}}
-				coll.UpdateOne(context.TODO(), bson.M{"uuid": reqUUID}, update)
+				_, err = coll.UpdateOne(context.TODO(), bson.M{"uuid": reqUUID}, update)
+				if err != nil {
+					json.NewEncoder(w).Encode(GeneralResponse{400, "Username/Email has already been taken"})
+					return
+				}
 			}
 		} else {
 			fileExt := filepath.Ext(header.Filename)
@@ -617,11 +628,19 @@ func editUser(w http.ResponseWriter, r *http.Request) {
 			os.Remove("." + oldFilePath)
 			if isStringEmpty(newPass) {
 				update := bson.D{{Key: "$set", Value: bson.D{{Key: "username", Value: username}, {Key: "email", Value: email}, {Key: "profileimage", Value: newImageFilePath[1:]}}}}
-				coll.UpdateOne(context.TODO(), bson.M{"uuid": reqUUID}, update)
+				_, err = coll.UpdateOne(context.TODO(), bson.M{"uuid": reqUUID}, update)
+				if err != nil {
+					json.NewEncoder(w).Encode(GeneralResponse{400, "Username/Email has already been taken"})
+					return
+				}
 			} else {
 				newHash := hashPass([]byte(newPass))
 				update := bson.D{{Key: "$set", Value: bson.D{{Key: "username", Value: username}, {Key: "email", Value: email}, {Key: "profileimage", Value: newImageFilePath[1:]}, {Key: "passhash", Value: string(newHash)}}}}
-				coll.UpdateOne(context.TODO(), bson.M{"uuid": reqUUID}, update)
+				_, err = coll.UpdateOne(context.TODO(), bson.M{"uuid": reqUUID}, update)
+				if err != nil {
+					json.NewEncoder(w).Encode(GeneralResponse{400, "Username/Email has already been taken"})
+					return
+				}
 			}
 		}
 		var user User

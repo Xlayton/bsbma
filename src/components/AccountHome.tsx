@@ -78,6 +78,10 @@ export class AccountHome extends Component<IProps, IState> {
                 if (data.code === 200) {
                     console.log(data)
                     this.setState({ shouldShowToast: true, toastMsg: "Successfully Editted User", toastType: "success" })
+                    window.localStorage.setItem("user-data", JSON.stringify({
+                        "isUserLogged": this.props.isUserLogged,
+                        "userData": data.user
+                    }))
                 } else {
                     console.log(data)
                     this.setState({ shouldShowToast: true, toastMsg: data.message, toastType: "danger" })
