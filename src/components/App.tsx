@@ -90,6 +90,10 @@ export default class App extends Component<IProps, IState> {
     this.setState({selectedBeatmap: beatmap}, after)
   }
 
+  shouldRedirectToAccHome = () => {
+    return this.state.isUserLogged ? <Redirect to="/acchome" /> : null
+  }
+
   shouldLogout = () => {
     window.localStorage.clear()
     this.setState({ shouldLogout: true })
@@ -102,6 +106,7 @@ export default class App extends Component<IProps, IState> {
       let userLogStatus = userDataParse.isUserLogged === true ? true : false
       let userInfo = userDataParse.userData
       this.setState({ isUserLogged: userLogStatus, user: userInfo })
+      
     }
   }
 
@@ -123,7 +128,7 @@ export default class App extends Component<IProps, IState> {
               <Documentation />
             </Route>
             <Route exact path="/acchome" >
-              <AccountHome isUserLogged={this.state.isUserLogged} />
+              <AccountHome apiURL={this.state.apiURL} isUserLogged={this.state.isUserLogged} user={this.state.user} />
             </Route>
             <Route exact path="/maps" >
               <Maps apiURL={this.state.apiURL} isUserLogged={this.state.isUserLogged} userUUID={this.state.user.uuid} setSelectedBeatmap={this.setSelectedBeatmap} />
@@ -143,6 +148,7 @@ export default class App extends Component<IProps, IState> {
               }
               <Redirect to="/" />
             </Route>
+            {this.shouldRedirectToAccHome()}
           </section>
         </BrowserRouter>
       </article>

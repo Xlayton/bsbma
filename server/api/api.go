@@ -577,6 +577,7 @@ func editUser(w http.ResponseWriter, r *http.Request) {
 		//Check minimum required fields
 		if isStringEmpty(reqUUID) || isStringEmpty(username) || isStringEmpty(oldPass) || isStringEmpty(email) {
 			json.NewEncoder(w).Encode(GeneralResponse{400, "Please provide necessary fields"})
+			return
 
 		}
 		client, ctx := getDbConnection()
@@ -623,6 +624,9 @@ func editUser(w http.ResponseWriter, r *http.Request) {
 				coll.UpdateOne(context.TODO(), bson.M{"uuid": reqUUID}, update)
 			}
 		}
+		var user User
+		coll.FindOne(context.TODO(), bson.M{"uuid": reqUUID}).Decode(&user)
+		json.NewEncoder(w).Encode(LoginResponse{200, "OK", user})
 	}
 
 }
@@ -951,6 +955,7 @@ func isStringEmpty(str string) bool {
 func setHeaders(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Headers", "*")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "*")
 	w.Header().Set("Content-Type", "application/json")
 }
 
