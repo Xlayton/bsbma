@@ -3,7 +3,6 @@ import { BrowserRouter, Redirect, Route } from 'react-router-dom'
 import '../styling/App.css';
 import { AccountHome } from './AccountHome';
 import { Documentation } from './Documentation';
-import { GetStarted } from './GetStarted';
 import { Homepage } from './Homepage';
 import { Navbar } from './Navbar';
 import { TryIt } from './TryIt';
@@ -116,9 +115,6 @@ export default class App extends Component<IProps, IState> {
           <section className="content-area">
             <Route exact path="/" >
               <Homepage />
-            </Route>
-            <Route exact path="/getstarted" >
-              <GetStarted />
             </Route>
             <Route exact path="/tryit" >
               <TryIt apiURL={this.state.apiURL} />

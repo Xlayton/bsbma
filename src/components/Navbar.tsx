@@ -43,7 +43,6 @@ export class Navbar extends Component<IProps, IState> {
                         (
                             <>
                                 <Link to="/">Home</Link>
-                                <Link to="/getstarted">Getting Started</Link>
                                 <Link to="/documentation">Documentation</Link>
                                 <Link to="/tryit">Try It</Link>
                             </>
