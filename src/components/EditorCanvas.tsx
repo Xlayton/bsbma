@@ -1,5 +1,5 @@
 import React, { Component, CSSProperties } from 'react'
-import { Scene, WebGLRenderer, PerspectiveCamera, AmbientLight, Raycaster, Vector2, Camera, Group, Vector3, Mesh, EdgesGeometry, LineSegments, LineBasicMaterial } from 'three'
+import { Scene, WebGLRenderer, PerspectiveCamera, AmbientLight, Raycaster, Vector2, Camera, Group, Vector3, Mesh, EdgesGeometry, LineSegments, LineBasicMaterial, Material, BackSide, GreaterEqualDepth, AlwaysDepth } from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { Toast } from './notification/Toast'
@@ -88,7 +88,6 @@ export class EditorCanvas extends Component<IProps, IState> {
                         loader.load(`./models/Wall.glb`,
                             gltf => {
                                 const root = gltf.scene;
-                                root.renderOrder = 1
                                 root.scale.set(.75, .75, .75);
                                 (root.children[0] as Mesh).geometry.rotateZ(180 * Math.PI / 180);
                                 (root.children[0] as Mesh).geometry.rotateX(180 * Math.PI / 180);
@@ -120,7 +119,6 @@ export class EditorCanvas extends Component<IProps, IState> {
                         loader.load(`./models/${noteType}.glb`,
                             gltf => {
                                 const root = gltf.scene;
-                                root.renderOrder = 1
                                 root.scale.set(.75, .75, .75);
                                 (root.children[0] as Mesh).geometry.rotateZ(180 * Math.PI / 180);
                                 (root.children[0] as Mesh).geometry.rotateX(180 * Math.PI / 180);
@@ -194,12 +192,14 @@ export class EditorCanvas extends Component<IProps, IState> {
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
+                    ((root.children[0] as Mesh).material as Material).depthFunc = AlwaysDepth;
                     root.children[0].userData = { "lineIndex": 0, "lineLayer": 0, "isPlaced": false }
                     this.state.placementGrid.add(root);
                 });
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
+                    ((root.children[0] as Mesh).material as Material).depthFunc = AlwaysDepth;
                     root.children[0].userData = { "lineIndex": 1, "lineLayer": 0, "isPlaced": false }
                     root.position.z = 3
 
@@ -208,6 +208,7 @@ export class EditorCanvas extends Component<IProps, IState> {
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
+                    ((root.children[0] as Mesh).material as Material).depthFunc = AlwaysDepth;
                     root.children[0].userData = { "lineIndex": 2, "lineLayer": 0, "isPlaced": false }
                     root.position.z = 6
 
@@ -216,6 +217,7 @@ export class EditorCanvas extends Component<IProps, IState> {
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
+                    ((root.children[0] as Mesh).material as Material).depthFunc = AlwaysDepth;
                     root.children[0].userData = { "lineIndex": 3, "lineLayer": 0, "isPlaced": false }
                     root.position.z = 9
 
@@ -224,6 +226,7 @@ export class EditorCanvas extends Component<IProps, IState> {
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
+                    ((root.children[0] as Mesh).material as Material).depthFunc = AlwaysDepth;
                     root.children[0].userData = { "lineIndex": 0, "lineLayer": 1, "isPlaced": false }
                     root.position.y = 3
                     this.state.placementGrid.add(root);
@@ -231,6 +234,7 @@ export class EditorCanvas extends Component<IProps, IState> {
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
+                    ((root.children[0] as Mesh).material as Material).depthFunc = AlwaysDepth;
                     root.children[0].userData = { "lineIndex": 1, "lineLayer": 1, "isPlaced": false }
                     root.position.y = 3
                     root.position.z = 3
@@ -240,6 +244,7 @@ export class EditorCanvas extends Component<IProps, IState> {
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
+                    ((root.children[0] as Mesh).material as Material).depthFunc = AlwaysDepth;
                     root.children[0].userData = { "lineIndex": 2, "lineLayer": 1, "isPlaced": false }
                     root.position.y = 3
                     root.position.z = 6
@@ -249,6 +254,7 @@ export class EditorCanvas extends Component<IProps, IState> {
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
+                    ((root.children[0] as Mesh).material as Material).depthFunc = AlwaysDepth;
                     root.children[0].userData = { "lineIndex": 3, "lineLayer": 1, "isPlaced": false }
                     root.position.y = 3
                     root.position.z = 9
@@ -258,6 +264,7 @@ export class EditorCanvas extends Component<IProps, IState> {
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
+                    ((root.children[0] as Mesh).material as Material).depthFunc = AlwaysDepth;
                     root.children[0].userData = { "lineIndex": 0, "lineLayer": 2, "isPlaced": false }
                     root.position.y = 6
                     this.state.placementGrid.add(root);
@@ -265,6 +272,7 @@ export class EditorCanvas extends Component<IProps, IState> {
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
+                    ((root.children[0] as Mesh).material as Material).depthFunc = AlwaysDepth;
                     root.children[0].userData = { "lineIndex": 1, "lineLayer": 2, "isPlaced": false }
                     root.position.y = 6
                     root.position.z = 3
@@ -274,6 +282,7 @@ export class EditorCanvas extends Component<IProps, IState> {
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
+                    ((root.children[0] as Mesh).material as Material).depthFunc = AlwaysDepth;
                     root.children[0].userData = { "lineIndex": 2, "lineLayer": 2, "isPlaced": false }
                     root.position.y = 6
                     root.position.z = 6
@@ -283,6 +292,7 @@ export class EditorCanvas extends Component<IProps, IState> {
             loader.load("./models/GridPane.glb",
                 gltf => {
                     const root = gltf.scene;
+                    ((root.children[0] as Mesh).material as Material).depthFunc = AlwaysDepth;
                     root.children[0].userData = { "lineIndex": 3, "lineLayer": 2, "isPlaced": false }
                     root.position.y = 6
                     root.position.z = 9
@@ -349,10 +359,11 @@ export class EditorCanvas extends Component<IProps, IState> {
                 loader.load(`./models/${this.state.selectedObject}.glb`,
                     gltf => {
                         const root = gltf.scene;
-                        root.renderOrder = 1
                         root.scale.set(.75, .75, .75);
                         (root.children[0] as Mesh).geometry.rotateZ(180 * Math.PI / 180);
                         (root.children[0] as Mesh).geometry.rotateX(180 * Math.PI / 180);
+                        ((root.children[0] as Mesh).material as Material).depthFunc = AlwaysDepth;
+                        ((root.children[0] as Mesh).material as Material).side = BackSide;
                         if (intersects[0].object.parent && intersects[0].object.parent.parent) {
                             root.setRotationFromEuler(this.state.placementGrid.rotation)
                             root.applyQuaternion(this.state.placementGrid.quaternion)
@@ -390,7 +401,9 @@ export class EditorCanvas extends Component<IProps, IState> {
                             root.quaternion.set(this.state.placementGrid.quaternion.x, this.state.placementGrid.quaternion.y, this.state.placementGrid.quaternion.z, this.state.placementGrid.quaternion.w)
                             root.rotateX(rotation)
                             const edges = new EdgesGeometry((root.children[0] as Mesh).geometry);
-                            const line = new LineSegments(edges, new LineBasicMaterial({ color: 0xffffff }));
+                            let lineMat = new LineBasicMaterial({ color: 0x0f0f0f });
+                            lineMat.depthFunc = GreaterEqualDepth
+                            const line = new LineSegments(edges, lineMat);
                             line.userData = { "beat": this.state.beat, "lineIndex": gridCellData.lineIndex, "lineLayer": gridCellData.lineLayer, "baseVec": vector, isWall: false }
                             root.add(line);
                             if (this.state.selectedObject !== "Wall") {
@@ -461,10 +474,12 @@ export class EditorCanvas extends Component<IProps, IState> {
         requestAnimationFrame(() => this.animate(camera, renderer, scene, canvasArea, raycaster));
         let notes = this.state.scene.children.filter(child => child.userData.beat !== undefined);
         notes.forEach(note => {
-            let baseVec = note.userData.baseVec
-            note.position.set(baseVec.x, baseVec.y, baseVec.z)
-            note.translateX((note.userData.beat - this.state.beat) * 5)
-        });
+            let baseVec = note.userData.baseVec;
+            note.position.set(baseVec.x, baseVec.y, baseVec.z);
+            let amt = (note.userData.beat - this.state.beat) * 5;
+            note.translateX(amt);
+            note.renderOrder = amt > 0 ? -1 * note.userData.beat : note.userData.beat === 0 ? Number.MAX_SAFE_INTEGER : 1/note.userData.beat
+       });
         renderer.clearDepth();
         renderer.render(scene, camera);
     }
