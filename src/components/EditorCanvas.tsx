@@ -99,7 +99,7 @@ export class EditorCanvas extends Component<IProps, IState> {
                                 root.userData = { "beat": wall._time, "lineIndex": filteredGridCell.children[0].userData.lineIndex, "lineLayer": filteredGridCell.children[0].userData.lineLayer, "baseVec": vector, isWall: false }
                                 root.quaternion.set(this.state.placementGrid.quaternion.x, this.state.placementGrid.quaternion.y, this.state.placementGrid.quaternion.z, this.state.placementGrid.quaternion.w)
                                 const edges = new EdgesGeometry((root.children[0] as Mesh).geometry);
-                                const line = new LineSegments(edges, new LineBasicMaterial({ color: 0xffffff }));
+                                const line = new LineSegments(edges, new LineBasicMaterial({ color: 0x0f0f0f }));
                                 root.add(line);
                                 scene.add(root)
                             });
