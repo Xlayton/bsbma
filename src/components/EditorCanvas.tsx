@@ -478,7 +478,8 @@ export class EditorCanvas extends Component<IProps, IState> {
             note.position.set(baseVec.x, baseVec.y, baseVec.z);
             let amt = (note.userData.beat - this.state.beat) * 5;
             note.translateX(amt);
-            note.renderOrder = amt > 0 ? -1 * note.userData.beat : note.userData.beat === 0 ? Number.MAX_SAFE_INTEGER : 1/note.userData.beat
+            note.renderOrder = amt > 0 ? -1 * note.userData.beat : note.userData.beat === 0 ? Number.MAX_SAFE_INTEGER : 1/note.userData.beat;
+            ((note.children[0] as Mesh).material as Material).depthFunc = this.state.beat === note.userData.beat ? GreaterEqualDepth : AlwaysDepth
        });
         renderer.clearDepth();
         renderer.render(scene, camera);
